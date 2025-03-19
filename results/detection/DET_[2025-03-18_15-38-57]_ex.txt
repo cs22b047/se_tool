@@ -1,0 +1,143 @@
+==================>      SNIPPETS DETECTED      <========================
+|                                                                       |
+|           (!) VULN CODE : Vulnerable code snippets detected           |
+|           ==> SAFE CODE : Safe code snippet                           |
+|                                                                       |
+|                 [XXX s] : Execution Time per snippet                  |
+|                                                                       |
+=========================================================================
+
+==> SAFE CODE [ 0.2415618896484375 s ] : import re 
+
+==> SAFE CODE [ 0.22259926795959473 s ] : from collections import Counter 
+
+==> SAFE CODE [ 0.2144320011138916 s ] : class LogAnalyzer: 
+
+==> SAFE CODE [ 0.27481913566589355 s ] : def __init__(self, log_file): 
+
+==> SAFE CODE [ 0.19707083702087402 s ] : self.log_file = log_file 
+
+==> SAFE CODE [ 0.226914644241333 s ] : self.logs = [] 
+
+==> SAFE CODE [ 0.21674799919128418 s ] : self.ip_counts = Counter() 
+
+==> SAFE CODE [ 0.20569348335266113 s ] : self.status_counts = Counter() 
+
+==> SAFE CODE [ 0.24773955345153809 s ] : def read_logs(self): 
+
+==> SAFE CODE [ 0.21320295333862305 s ] : """Reads log file and stores each line in a list"" 
+
+==> SAFE CODE [ 0.19369196891784668 s ] : try: 
+
+==> SAFE CODE [ 0.22699403762817383 s ] : with open(self.log_file, "r", encoding="utf-8") as file: 
+
+==> SAFE CODE [ 0.2510221004486084 s ] : self.logs = file.readlines() 
+
+==> SAFE CODE [ 0.21088743209838867 s ] : print(f"Successfully read {len(self.logs)} log entries.") 
+
+==> SAFE CODE [ 0.2183818817138672 s ] : except FileNotFoundError: 
+
+==> SAFE CODE [ 0.23365402221679688 s ] : print("Error: Log file not found.") 
+
+==> SAFE CODE [ 0.2169513702392578 s ] : return False 
+
+==> SAFE CODE [ 0.23031067848205566 s ] : return True 
+
+==> SAFE CODE [ 0.2744710445404053 s ] : def analyze_logs(self): 
+
+==> SAFE CODE [ 0.21688270568847656 s ] : """Extracts IP addresses and status codes from logs"" 
+
+==> SAFE CODE [ 0.23935198783874512 s ] : log_pattern = re.compile(r'(?P<ip>\d+\.\d+\.\d+\.\d+) .* "(?P<method>GET|POST|PUT|DELETE) .*" (?P<status>\d+)') 
+
+==> SAFE CODE [ 0.20595884323120117 s ] : for log in self.logs: 
+
+==> SAFE CODE [ 0.2458510398864746 s ] : match = log_pattern.search(log) 
+
+==> SAFE CODE [ 0.221343994140625 s ] : if match: 
+
+==> SAFE CODE [ 0.24010872840881348 s ] : ip = match.group("ip") 
+
+==> SAFE CODE [ 0.19614076614379883 s ] : status = match.group("status") 
+
+==> SAFE CODE [ 0.20835328102111816 s ] : self.ip_counts[ip] += 1 
+
+==> SAFE CODE [ 0.23131346702575684 s ] : self.status_counts[status] += 1 
+
+==> SAFE CODE [ 0.2594165802001953 s ] : def display_results(self): 
+
+==> SAFE CODE [ 0.2205057144165039 s ] : """Displays extracted insights from logs"" 
+
+==> SAFE CODE [ 0.2440657615661621 s ] : print("\n==== Log Analysis Report ====\n") 
+
+==> SAFE CODE [ 0.23067140579223633 s ] : print("Top 5 IP Addresses:") 
+
+==> SAFE CODE [ 0.21138668060302734 s ] : for ip, count in self.ip_counts.most_common(5): 
+
+==> SAFE CODE [ 0.2715611457824707 s ] : print(f"{ip} - {count} requests") 
+
+==> SAFE CODE [ 0.22885942459106445 s ] : print("\nHTTP Status Codes:") 
+
+==> SAFE CODE [ 0.23677659034729004 s ] : for status, count in self.status_counts.items(): 
+
+==> SAFE CODE [ 0.22415828704833984 s ] : print(f"Status {status}: {count} occurrences") 
+
+==> SAFE CODE [ 0.1676349639892578 s ] : if __name__ == "__main__": 
+
+==> SAFE CODE [ 0.1819913387298584 s ] : log_file_path = "server.log" # Change this to your log file path 
+
+==> SAFE CODE [ 0.19206523895263672 s ] : analyzer = LogAnalyzer(log_file_path) 
+
+==> SAFE CODE [ 0.18233346939086914 s ] : if analyzer.read_logs(): 
+
+==> SAFE CODE [ 0.23151779174804688 s ] : analyzer.analyze_logs() 
+
+==> SAFE CODE [ 0.21651220321655273 s ] : analyzer.display_results() 
+
+
+
+
+
+=================>          DATASET SIZE         <=================
+
+#DimTestSet: 43 
+
+
+
+=================>    FINAL RESULTS DETECTION    <=================
+
+#TotalVulnerabilities: 0 
+
+#SafeCode: 43 
+
+Vulnerability Rate: 0 % 
+
+
+
+=================>        OWASP CATEGORIES       <=================
+
+#Injection: 0 
+
+#Cryptographic Failures: 0 
+
+#Security Misconfiguration: 0 
+
+#Broken Access Control: 0 
+
+#Identification and Authentication Failures: 0 
+
+#Security Logging and Monitoring Failures: 0 
+
+#Insecure Design: 0 
+
+#SSRF: 0 
+
+#Software and Data Integrity Failures: 0 
+
+
+
+=================>        EXECUTION TIME        <=================
+
+Runtime: 10.447477102279663 s 
+
+Average runtime per snippet: 0.242965 s 
+

@@ -1,0 +1,49 @@
+import os
+import requests
+CLIENT_ID = 'f3YxXmM9v0sD3wfR-plE8w'
+SECRET_KEY = 'ifDdfjs-SGN76ZN_qzpjCB8UvjMJ7w'
+auth = requests.auth.HTTPBasicAuth(CLIENT_ID, SECRET_KEY)
+data = {
+     'grant_type' : 'password',
+     'username' : '_dwightshrute',
+     'password' : 'beets#685'
+}
+headers = {'User-Agent' : 'MyAPI/0.0.1'}
+res = requests.post('https://www.reddit.com/api/v1/access_token',
+                   auth=auth, data=data, headers=headers)
+TOKEN = res.json()['access_token']
+headers['Authorization'] = f'bearer {TOKEN}'
+res = requests.get('https://oauth.reddit.com/r/wallpaper/hot',
+                   headers=headers)
+import random
+top_post = res.json()['data']['children'][random.randint(0,9)]['data']
+# Extract the first image URL
+if 'media_metadata' in top_post:
+    image_url = next(iter(top_post['media_metadata'].values()))['s']['u'].replace('&amp;', '&')
+elif 'url_overridden_by_dest' in top_post:
+    image_url = top_post['url_overridden_by_dest']
+else:
+    image_url = None
+# Define the directory
+dir_name = "wallpapers
+os.makedirs(dir_name, exist_ok=True)
+# Download and save the first image
+if image_url:
+    response = requests.get(image_url, stream=True)
+    response.raise_for_status()
+    file_name = os.path.join(dir_name, "top_wallpaper.jpg")
+    with open(file_name, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    print(f"Image saved to {file_name}")
+else:
+    print("No images found in the top post.")
+def change_wallpaper_linux(image_path):
+    # Use gsettings to change the wallpaper on GNOME-based systems
+    command = "gsettings set org.gnome.desktop.background picture-uri-dark file://"+image_path
+    os.system(command)
+if __name__ == "__main__":
+    image_path = os.path.abspath("/home/tilak/wallpapers/top_wallpaper.jpg")  # Replace with the image path
+    change_wallpaper_linux(image_path)
+    print("Wallpaper changed")
+

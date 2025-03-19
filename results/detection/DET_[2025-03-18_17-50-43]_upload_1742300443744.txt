@@ -1,0 +1,585 @@
+==================>      SNIPPETS DETECTED      <========================
+|                                                                       |
+|           (!) VULN CODE : Vulnerable code snippets detected           |
+|           ==> SAFE CODE : Safe code snippet                           |
+|                                                                       |
+|                 [XXX s] : Execution Time per snippet                  |
+|                                                                       |
+=========================================================================
+
+==> SAFE CODE [ 0.1846327781677246 s ] : <!DOCTYPE html> 
+
+==> SAFE CODE [ 0.2206568717956543 s ] : <html lang="en"> 
+
+==> SAFE CODE [ 0.1717362403869629 s ] : <head> 
+
+==> SAFE CODE [ 0.20389533042907715 s ] : <meta charset="UTF-8"> 
+
+==> SAFE CODE [ 0.2100076675415039 s ] : <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+
+==> SAFE CODE [ 0.20929455757141113 s ] : <title>Code Vulnerability Scanner</title> 
+
+==> SAFE CODE [ 0.20043134689331055 s ] : <style> 
+
+==> SAFE CODE [ 0.2343142032623291 s ] : /* Global Styles */ 
+
+==> SAFE CODE [ 0.19305133819580078 s ] : html { 
+
+==> SAFE CODE [ 0.22900748252868652 s ] : box-sizing: border-box; 
+
+==> SAFE CODE [ 0.22130250930786133 s ] : } 
+
+==> SAFE CODE [ 0.22720789909362793 s ] : *, 
+
+==> SAFE CODE [ 0.23313641548156738 s ] : *:before, 
+
+==> SAFE CODE [ 0.24366998672485352 s ] : *:after { 
+
+==> SAFE CODE [ 0.21685004234313965 s ] : box-sizing: inherit; 
+
+==> SAFE CODE [ 0.199845552444458 s ] : } 
+
+==> SAFE CODE [ 0.21487116813659668 s ] : form { 
+
+==> SAFE CODE [ 0.21883654594421387 s ] : width: 60%; 
+
+==> SAFE CODE [ 0.22340607643127441 s ] : height: 100%; 
+
+==> SAFE CODE [ 0.20730900764465332 s ] : margin: auto; 
+
+==> SAFE CODE [ 0.20215940475463867 s ] : } 
+
+==> SAFE CODE [ 0.23391509056091309 s ] : input[type=text] { 
+
+==> SAFE CODE [ 0.22766709327697754 s ] : background-color: transparent; 
+
+==> SAFE CODE [ 0.22237396240234375 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.22574782371520996 s ] : font-size: 80%; 
+
+==> SAFE CODE [ 0.2110886573791504 s ] : text-align: center; 
+
+==> SAFE CODE [ 0.21895647048950195 s ] : /*text-transform: uppercase;*/ 
+
+==> SAFE CODE [ 0.17665886878967285 s ] : padding: 1rem 2rem; 
+
+==> SAFE CODE [ 0.2882349491119385 s ] : border: 0; 
+
+==> SAFE CODE [ 0.24174141883850098 s ] : } 
+
+==> SAFE CODE [ 0.17555952072143555 s ] : label.file { 
+
+==> SAFE CODE [ 0.2112267017364502 s ] : position: relative; 
+
+==> SAFE CODE [ 0.20229816436767578 s ] : display: block; 
+
+==> SAFE CODE [ 0.23879003524780273 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.18347668647766113 s ] : font-size: 80%; 
+
+==> SAFE CODE [ 0.25075411796569824 s ] : text-align: center; 
+
+==> SAFE CODE [ 0.19459056854248047 s ] : text-transform: uppercase; 
+
+==> SAFE CODE [ 0.2138373851776123 s ] : border: 2px dashed #ccc; 
+
+==> SAFE CODE [ 0.23314690589904785 s ] : margin: 3rem 0; 
+
+==> SAFE CODE [ 0.23673558235168457 s ] : padding: 3rem; 
+
+==> SAFE CODE [ 0.21138453483581543 s ] : } 
+
+==> SAFE CODE [ 0.1954944133758545 s ] : label.file:hover { 
+
+==> SAFE CODE [ 0.24962782859802246 s ] : background-color: rgba(255, 255, 255, 0.3); 
+
+==> SAFE CODE [ 0.2410593032836914 s ] : } 
+
+==> SAFE CODE [ 0.21580290794372559 s ] : label.file:active, 
+
+==> SAFE CODE [ 0.23545026779174805 s ] : label.file.focus { 
+
+==> SAFE CODE [ 0.16708064079284668 s ] : border-color: #09f; 
+
+==> SAFE CODE [ 0.24045872688293457 s ] : } 
+
+==> SAFE CODE [ 0.1973259449005127 s ] : input[type=file] { 
+
+==> SAFE CODE [ 0.2290184497833252 s ] : position: absolute; 
+
+==> SAFE CODE [ 0.23457908630371094 s ] : left: 0; 
+
+==> SAFE CODE [ 0.20320415496826172 s ] : top: 0; 
+
+==> SAFE CODE [ 0.2528674602508545 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.19117093086242676 s ] : height: 100%; 
+
+==> SAFE CODE [ 0.17554783821105957 s ] : opacity: 0; 
+
+==> SAFE CODE [ 0.17971158027648926 s ] : outline: 0; 
+
+==> SAFE CODE [ 0.2023472785949707 s ] : border: 1px solid red; 
+
+==> SAFE CODE [ 0.17786312103271484 s ] : } 
+
+==> SAFE CODE [ 0.22707891464233398 s ] : .sml { 
+
+==> SAFE CODE [ 0.2718799114227295 s ] : display: inline-block; 
+
+==> SAFE CODE [ 0.2566256523132324 s ] : color: #eee; 
+
+==> SAFE CODE [ 0.21794843673706055 s ] : background-color: rgba(0, 200, 0, 0.67); 
+
+==> SAFE CODE [ 0.2038586139678955 s ] : border-radius: 1rem; 
+
+==> SAFE CODE [ 0.24625658988952637 s ] : font-size: smaller; 
+
+==> SAFE CODE [ 0.2355787754058838 s ] : margin: 1rem 0 0 0; 
+
+==> SAFE CODE [ 0.22127628326416016 s ] : padding: 0.67rem 1rem; 
+
+==> SAFE CODE [ 0.23981475830078125 s ] : } 
+
+==> SAFE CODE [ 0.23567962646484375 s ] : body { 
+
+==> SAFE CODE [ 0.23781895637512207 s ] : font-family: Arial, sans-serif; 
+
+==> SAFE CODE [ 0.240339994430542 s ] : background-color: oklch(0.208 0.042 265.755); 
+
+==> SAFE CODE [ 0.24163460731506348 s ] : margin: 0; 
+
+==> SAFE CODE [ 0.23812317848205566 s ] : padding: 20px; 
+
+==> SAFE CODE [ 0.22017550468444824 s ] : text-align: center; 
+
+==> SAFE CODE [ 0.20876669883728027 s ] : color: aliceblue; 
+
+==> SAFE CODE [ 0.2272655963897705 s ] : } 
+
+==> SAFE CODE [ 0.17619609832763672 s ] : h1 { 
+
+==> SAFE CODE [ 0.23183250427246094 s ] : text-align: center; 
+
+==> SAFE CODE [ 0.23270535469055176 s ] : font-size: 22px; 
+
+==> SAFE CODE [ 0.22336053848266602 s ] : font-weight: 700; 
+
+==> SAFE CODE [ 0.1526930332183838 s ] : color: white; 
+
+==> SAFE CODE [ 0.23231029510498047 s ] : text-transform: uppercase; 
+
+==> SAFE CODE [ 0.17395567893981934 s ] : word-spacing: 1px; 
+
+==> SAFE CODE [ 0.19754266738891602 s ] : letter-spacing: 2px; 
+
+==> SAFE CODE [ 0.19704818725585938 s ] : } 
+
+==> SAFE CODE [ 0.18865609169006348 s ] : h1 span { 
+
+==> SAFE CODE [ 0.20746493339538574 s ] : margin-top: 40px; 
+
+==> SAFE CODE [ 0.21174335479736328 s ] : text-transform: none; 
+
+==> SAFE CODE [ 0.18807172775268555 s ] : font-size: .75em; 
+
+==> SAFE CODE [ 0.211442232131958 s ] : font-weight: normal; 
+
+==> SAFE CODE [ 0.16248774528503418 s ] : font-style: italic; 
+
+==> SAFE CODE [ 0.1531996726989746 s ] : font-family: "Playfair Display", "Bookman", serif; 
+
+==> SAFE CODE [ 0.14930510520935059 s ] : color: #999; 
+
+==> SAFE CODE [ 0.15982675552368164 s ] : letter-spacing: -0.005em; 
+
+==> SAFE CODE [ 0.18616008758544922 s ] : word-spacing: 1px; 
+
+==> SAFE CODE [ 0.24556422233581543 s ] : letter-spacing: none; 
+
+==> SAFE CODE [ 0.24691414833068848 s ] : } 
+
+==> SAFE CODE [ 0.20310497283935547 s ] : h1:before { 
+
+==> SAFE CODE [ 0.20023632049560547 s ] : position: absolute; 
+
+==> SAFE CODE [ 0.18040919303894043 s ] : left: 0; 
+
+==> SAFE CODE [ 0.21694064140319824 s ] : bottom: 38px; 
+
+==> SAFE CODE [ 0.2331538200378418 s ] : width: 60px; 
+
+==> SAFE CODE [ 0.20082759857177734 s ] : height: 4px; 
+
+==> SAFE CODE [ 0.20923924446105957 s ] : content: ""; 
+
+==> SAFE CODE [ 0.21932125091552734 s ] : left: 50%; 
+
+==> SAFE CODE [ 0.19509434700012207 s ] : margin-left: -30px; 
+
+==> SAFE CODE [ 0.21322011947631836 s ] : background-color: #dfdfdf; 
+
+==> SAFE CODE [ 0.2124481201171875 s ] : } 
+
+==> SAFE CODE [ 0.20428228378295898 s ] : /* Container */ 
+
+==> SAFE CODE [ 0.2146000862121582 s ] : .container { 
+
+==> SAFE CODE [ 0.22272706031799316 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.21743512153625488 s ] : margin: auto; 
+
+==> SAFE CODE [ 0.2131054401397705 s ] : border-radius: 10px; 
+
+==> SAFE CODE [ 0.24367332458496094 s ] : } 
+
+==> SAFE CODE [ 0.2361164093017578 s ] : /* Input Styling */ 
+
+==> SAFE CODE [ 0.21911954879760742 s ] : input, 
+
+==> SAFE CODE [ 0.22974681854248047 s ] : textarea { 
+
+==> SAFE CODE [ 0.23248529434204102 s ] : color: oklch(0.707 0.022 261.325); 
+
+==> SAFE CODE [ 0.23681163787841797 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.2272500991821289 s ] : border-radius: 5px; 
+
+==> SAFE CODE [ 0.22856616973876953 s ] : font-size: 16px; 
+
+==> SAFE CODE [ 0.23509645462036133 s ] : } 
+
+==> SAFE CODE [ 0.24242210388183594 s ] : #codeInput { 
+
+==> SAFE CODE [ 0.2204747200012207 s ] : display: block; 
+
+==> SAFE CODE [ 0.2252349853515625 s ] : margin: 20px auto 20px auto; 
+
+==> SAFE CODE [ 0.23547101020812988 s ] : resize: vertical; 
+
+==> SAFE CODE [ 0.2235734462738037 s ] : width: 60%; 
+
+==> SAFE CODE [ 0.2008528709411621 s ] : height: 500px; 
+
+==> SAFE CODE [ 0.20653104782104492 s ] : background-color: oklch(0.372 0.044 257.287); 
+
+==> SAFE CODE [ 0.22057390213012695 s ] : } 
+
+==> SAFE CODE [ 0.2510085105895996 s ] : @media (max-width: 600px) { 
+
+==> SAFE CODE [ 0.227919340133667 s ] : #codeInput { 
+
+==> SAFE CODE [ 0.18213438987731934 s ] : width: 100%; 
+
+==> SAFE CODE [ 0.22004914283752441 s ] : } 
+
+==> SAFE CODE [ 0.24829602241516113 s ] : } 
+
+==> SAFE CODE [ 0.22543859481811523 s ] : /* Button Styling */ 
+
+==> SAFE CODE [ 0.215254545211792 s ] : button { 
+
+==> SAFE CODE [ 0.2393937110900879 s ] : border-radius: 10px; 
+
+==> SAFE CODE [ 0.23710918426513672 s ] : margin: 20px; 
+
+==> SAFE CODE [ 0.20492839813232422 s ] : color: #eee; 
+
+==> SAFE CODE [ 0.24644804000854492 s ] : background-color: oklch(0.129 0.042 264.695); 
+
+==> SAFE CODE [ 0.2442629337310791 s ] : padding: 1rem 2rem; 
+
+==> SAFE CODE [ 0.18736529350280762 s ] : border: 0; 
+
+==> SAFE CODE [ 0.2178804874420166 s ] : outline: none; 
+
+==> SAFE CODE [ 0.2354142665863037 s ] : } 
+
+==> SAFE CODE [ 0.242706298828125 s ] : button:hover, 
+
+==> SAFE CODE [ 0.25907087326049805 s ] : button:focus { 
+
+==> SAFE CODE [ 0.18654632568359375 s ] : background-color: #333; 
+
+==> SAFE CODE [ 0.1650550365447998 s ] : } 
+
+==> SAFE CODE [ 0.2200467586517334 s ] : button:active { 
+
+==> SAFE CODE [ 0.2489175796508789 s ] : color: #fff; 
+
+==> SAFE CODE [ 0.24980592727661133 s ] : background-color: #000; 
+
+==> SAFE CODE [ 0.23954248428344727 s ] : } 
+
+==> SAFE CODE [ 0.2379772663116455 s ] : button:hover { 
+
+==> SAFE CODE [ 0.1838092803955078 s ] : background: #0056b3; 
+
+==> SAFE CODE [ 0.1566791534423828 s ] : } 
+
+==> SAFE CODE [ 0.23377585411071777 s ] : /* Report Section */ 
+
+==> SAFE CODE [ 0.20588898658752441 s ] : #report { 
+
+==> SAFE CODE [ 0.2371368408203125 s ] : background: #222; 
+
+==> SAFE CODE [ 0.2427074909210205 s ] : color: #0f0; 
+
+==> SAFE CODE [ 0.22727084159851074 s ] : padding: 15px; 
+
+==> SAFE CODE [ 0.1805102825164795 s ] : text-align: left; 
+
+==> SAFE CODE [ 0.2289900779724121 s ] : white-space: pre-wrap; 
+
+==> SAFE CODE [ 0.22137045860290527 s ] : border-radius: 5px; 
+
+==> SAFE CODE [ 0.20213675498962402 s ] : margin-top: 20px; 
+
+==> SAFE CODE [ 0.22750544548034668 s ] : font-family: "Courier New", monospace; 
+
+==> SAFE CODE [ 0.2123713493347168 s ] : } 
+
+==> SAFE CODE [ 0.23932838439941406 s ] : /* Responsive Design */ 
+
+==> SAFE CODE [ 0.18787002563476562 s ] : @media (max-width: 600px) { 
+
+==> SAFE CODE [ 0.23494482040405273 s ] : .container { 
+
+==> SAFE CODE [ 0.2063915729522705 s ] : width: 90%; 
+
+==> SAFE CODE [ 0.25467848777770996 s ] : padding: 15px; 
+
+==> SAFE CODE [ 0.23383283615112305 s ] : } 
+
+==> SAFE CODE [ 0.22663068771362305 s ] : } 
+
+==> SAFE CODE [ 0.22710490226745605 s ] : </style> 
+
+==> SAFE CODE [ 0.24680542945861816 s ] : </head> 
+
+==> SAFE CODE [ 0.24776792526245117 s ] : <body> 
+
+==> SAFE CODE [ 0.22689008712768555 s ] : <div class="container"> 
+
+==> SAFE CODE [ 0.22468876838684082 s ] : <h1>Code Vulnerability Scanner</h1> 
+
+==> SAFE CODE [ 0.25388312339782715 s ] : <textarea id="codeInput" rows="10" placeholder="Paste your code here..."></textarea> 
+
+==> SAFE CODE [ 0.20843267440795898 s ] : <!-- <h3>Upload a File</h3> 
+
+==> SAFE CODE [ 0.19397306442260742 s ] : <input type="file" id="fileInput"> 
+
+==> SAFE CODE [ 0.20082449913024902 s ] : <button onclick="uploadFile()">Upload</button> --> 
+
+==> SAFE CODE [ 0.2065112590789795 s ] : <h3>OR</h3> 
+
+==> SAFE CODE [ 0.2187027931213379 s ] : <input type="text" value="Click here and press tab to test keyboard interaction."> 
+
+==> SAFE CODE [ 0.2132737636566162 s ] : <form method="post" action="/upload"> 
+
+==> SAFE CODE [ 0.21900582313537598 s ] : <label class="file"> 
+
+==> SAFE CODE [ 0.22025251388549805 s ] : Drop a file or click to select one 
+
+==> SAFE CODE [ 0.24250507354736328 s ] : <input type="file" id="fileInput" multiple> 
+
+==> SAFE CODE [ 0.22158575057983398 s ] : <!-- use multiple, even if it’s not allowed, to be able to show an info text --> 
+
+==> SAFE CODE [ 0.21224164962768555 s ] : </label> 
+
+==> SAFE CODE [ 0.1850442886352539 s ] : </form> 
+
+==> SAFE CODE [ 0.23077988624572754 s ] : <button onclick="uploadFile()">Analyze Uploaded code</button> 
+
+==> SAFE CODE [ 0.21589970588684082 s ] : <button onclick="analyzePastedCode()">Analyze Pasted Code</button> 
+
+==> SAFE CODE [ 0.21721720695495605 s ] : <hr> 
+
+==> SAFE CODE [ 0.19506263732910156 s ] : <h3>Vulnerability Report</h3> 
+
+==> SAFE CODE [ 0.24182701110839844 s ] : <pre id="report">--Analysis will display here--</pre> 
+
+==> SAFE CODE [ 0.24518537521362305 s ] : </div> 
+
+==> SAFE CODE [ 0.21019482612609863 s ] : <script> 
+
+==> SAFE CODE [ 0.14696192741394043 s ] : document.addEventListener("DOMContentLoaded", function () { 
+
+==> SAFE CODE [ 0.14952874183654785 s ] : const fileInput = document.getElementById("fileInput"); 
+
+==> SAFE CODE [ 0.18900513648986816 s ] : const reportDiv = document.getElementById("report"); 
+
+==> SAFE CODE [ 0.14343523979187012 s ] : fileInput.addEventListener("change", function () { 
+
+==> SAFE CODE [ 0.1547558307647705 s ] : const files = fileInput.files; 
+
+==> SAFE CODE [ 0.1501471996307373 s ] : const label = fileInput.closest("label.file"); 
+
+==> SAFE CODE [ 0.1825714111328125 s ] : if (files.length === 0) { 
+
+==> SAFE CODE [ 0.17565226554870605 s ] : label.innerHTML = "Drop a file or click to select one"; 
+
+==> SAFE CODE [ 0.1827549934387207 s ] : return; 
+
+==> SAFE CODE [ 0.24609780311584473 s ] : } 
+
+==> SAFE CODE [ 0.19310212135314941 s ] : if (files.length > 1) { 
+
+==> SAFE CODE [ 0.20101237297058105 s ] : label.innerHTML = "Sorry, multiple files are not allowed"; 
+
+==> SAFE CODE [ 0.22014546394348145 s ] : return; 
+
+==> SAFE CODE [ 0.2177600860595703 s ] : } 
+
+==> SAFE CODE [ 0.15654206275939941 s ] : const file = files[0]; 
+
+==> SAFE CODE [ 0.18198823928833008 s ] : label.innerHTML = `${file.name} <br> 
+
+==> SAFE CODE [ 0.23197460174560547 s ] : <span class="sml">Type: ${file.type || "Unknown"}, ${Math.round(file.size / 1024)} KB</span>`; 
+
+==> SAFE CODE [ 0.17203569412231445 s ] : }); 
+
+==> SAFE CODE [ 0.19943594932556152 s ] : function uploadFile() { 
+
+==> SAFE CODE [ 0.2043924331665039 s ] : if (fileInput.files.length === 0) { 
+
+==> SAFE CODE [ 0.20021319389343262 s ] : alert("Please select a file"); 
+
+==> SAFE CODE [ 0.22800302505493164 s ] : return; 
+
+==> SAFE CODE [ 0.23140954971313477 s ] : } 
+
+==> SAFE CODE [ 0.18939518928527832 s ] : reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute..."; 
+
+==> SAFE CODE [ 0.23049116134643555 s ] : const formData = new FormData(); 
+
+==> SAFE CODE [ 0.21822571754455566 s ] : formData.append("file", fileInput.files[0]); 
+
+==> SAFE CODE [ 0.20345735549926758 s ] : fetch("http://10.30.34.198:5000/upload", { 
+
+==> SAFE CODE [ 0.13205671310424805 s ] : method: "POST 
+
+==> SAFE CODE [ 0.12983489036560059 s ] : body: formData 
+
+==> SAFE CODE [ 0.12984681129455566 s ] : }) 
+
+==> SAFE CODE [ 0.13573122024536133 s ] : .then(response => response.json()) 
+
+==> SAFE CODE [ 0.1335124969482422 s ] : .then(data => { 
+
+==> SAFE CODE [ 0.13247466087341309 s ] : reportDiv.textContent = data.report || "No report generated."; 
+
+==> SAFE CODE [ 0.1378633975982666 s ] : }) 
+
+==> SAFE CODE [ 0.13537049293518066 s ] : .catch(error => { 
+
+==> SAFE CODE [ 0.13639116287231445 s ] : console.error("Error:", error); 
+
+==> SAFE CODE [ 0.12982416152954102 s ] : reportDiv.textContent = "Error uploading file."; 
+
+==> SAFE CODE [ 0.1311948299407959 s ] : }); 
+
+==> SAFE CODE [ 0.1309046745300293 s ] : } 
+
+==> SAFE CODE [ 0.13013482093811035 s ] : function analyzePastedCode() { 
+
+==> SAFE CODE [ 0.13353848457336426 s ] : const codeInput = document.getElementById("codeInput").value.trim(); 
+
+==> SAFE CODE [ 0.13335156440734863 s ] : if (!codeInput) { 
+
+==> SAFE CODE [ 0.13097810745239258 s ] : alert("Please paste some code."); 
+
+==> SAFE CODE [ 0.12793350219726562 s ] : return; 
+
+==> SAFE CODE [ 0.13197803497314453 s ] : } 
+
+==> SAFE CODE [ 0.13547801971435547 s ] : reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute..."; 
+
+==> SAFE CODE [ 0.13181495666503906 s ] : fetch("http://10.30.34.198:5000/analyze", { 
+
+==> SAFE CODE [ 0.1326766014099121 s ] : method: "POST 
+
+==> SAFE CODE [ 0.13280439376831055 s ] : headers: { "Content-Type": "application/json" }, 
+
+==> SAFE CODE [ 0.12944769859313965 s ] : body: JSON.stringify({ code: codeInput }) 
+
+==> SAFE CODE [ 0.12787723541259766 s ] : }) 
+
+==> SAFE CODE [ 0.1312563419342041 s ] : .then(response => response.json()) 
+
+==> SAFE CODE [ 0.13773703575134277 s ] : .then(data => { 
+
+==> SAFE CODE [ 0.1313328742980957 s ] : reportDiv.textContent = data.report || "No report generated."; 
+
+==> SAFE CODE [ 0.13140511512756348 s ] : }) 
+
+==> SAFE CODE [ 0.1338667869567871 s ] : .catch(error => { 
+
+==> SAFE CODE [ 0.12894678115844727 s ] : console.error("Error:", error); 
+
+==> SAFE CODE [ 0.12986207008361816 s ] : reportDiv.textContent = "Error analyzing pasted code."; 
+
+==> SAFE CODE [ 0.1292567253112793 s ] : }); 
+
+==> SAFE CODE [ 0.13167953491210938 s ] : } 
+
+==> SAFE CODE [ 0.1307687759399414 s ] : document.querySelector("button[onclick='uploadFile()']").addEventListener("click", uploadFile); 
+
+==> SAFE CODE [ 0.13118219375610352 s ] : document.querySelector("button[onclick='analyzePastedCode()']").addEventListener("click", analyzePastedCode); 
+
+==> SAFE CODE [ 0.13259267807006836 s ] : }); 
+
+==> SAFE CODE [ 0.13045525550842285 s ] : </script> 
+
+==> SAFE CODE [ 0.13049864768981934 s ] : </body> 
+
+==> SAFE CODE [ 0.13119006156921387 s ] : </html> 
+
+
+
+
+
+=================>          DATASET SIZE         <=================
+
+#DimTestSet: 264 
+
+
+
+=================>    FINAL RESULTS DETECTION    <=================
+
+#TotalVulnerabilities: 0 
+
+#SafeCode: 264 
+
+Vulnerability Rate: 0 % 
+
+
+
+=================>        OWASP CATEGORIES       <=================
+
+#Injection: 0 
+
+#Cryptographic Failures: 0 
+
+#Security Misconfiguration: 0 
+
+#Broken Access Control: 0 
+
+#Identification and Authentication Failures: 0 
+
+#Security Logging and Monitoring Failures: 0 
+
+#Insecure Design: 0 
+
+#SSRF: 0 
+
+#Software and Data Integrity Failures: 0 
+
+
+
+=================>        EXECUTION TIME        <=================
+
+Runtime: 58.38936758041382 s 
+
+Average runtime per snippet: 0.221172 s 
+

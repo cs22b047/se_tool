@@ -1,0 +1,153 @@
+==================>      SNIPPETS DETECTED      <========================
+|                                                                       |
+|           (!) VULN CODE : Vulnerable code snippets detected           |
+|           ==> SAFE CODE : Safe code snippet                           |
+|                                                                       |
+|                 [XXX s] : Execution Time per snippet                  |
+|                                                                       |
+=========================================================================
+
+==> SAFE CODE [ 0.2069716453552246 s ] : import os 
+
+==> SAFE CODE [ 0.19969463348388672 s ] : import requests 
+
+==> SAFE CODE [ 0.21024131774902344 s ] : CLIENT_ID = 'f3YxXmM9v0sD3wfR-plE8w' 
+
+==> SAFE CODE [ 0.26564860343933105 s ] : SECRET_KEY = 'ifDdfjs-SGN76ZN_qzpjCB8UvjMJ7w' 
+
+==> SAFE CODE [ 0.24457979202270508 s ] : auth = requests.auth.HTTPBasicAuth(CLIENT_ID, SECRET_KEY) 
+
+==> SAFE CODE [ 0.22655987739562988 s ] : data = { 
+
+==> SAFE CODE [ 0.20862507820129395 s ] : 'grant_type' : 'password', 
+
+==> SAFE CODE [ 0.21187257766723633 s ] : 'username' : '_dwightshrute', 
+
+==> SAFE CODE [ 0.22857165336608887 s ] : 'password' : 'beets#685' 
+
+==> SAFE CODE [ 0.2392711639404297 s ] : } 
+
+==> SAFE CODE [ 0.2466273307800293 s ] : headers = {'User-Agent' : 'MyAPI/0.0.1'} 
+
+==> SAFE CODE [ 0.22362709045410156 s ] : res = requests.post('https://www.reddit.com/api/v1/access_token', 
+
+==> SAFE CODE [ 0.2554032802581787 s ] : auth=auth, data=data, headers=headers) 
+
+==> SAFE CODE [ 0.2303180694580078 s ] : TOKEN = res.json()['access_token'] 
+
+==> SAFE CODE [ 0.22005319595336914 s ] : headers['Authorization'] = f'bearer {TOKEN}' 
+
+==> SAFE CODE [ 0.249161958694458 s ] : res = requests.get('https://oauth.reddit.com/r/wallpaper/hot', 
+
+==> SAFE CODE [ 0.2522256374359131 s ] : headers=headers) 
+
+==> SAFE CODE [ 0.23134136199951172 s ] : import random 
+
+(!) VULN CODE [ 0.2521195411682129 s ] , Cryptographic Failures : top_post = res.json()['data']['children'][random.randint(0,9)]['data'] 
+
+==> SAFE CODE [ 0.23331046104431152 s ] : # Extract the first image URL 
+
+==> SAFE CODE [ 0.21251416206359863 s ] : if 'media_metadata' in top_post: 
+
+==> SAFE CODE [ 0.19255614280700684 s ] : image_url = next(iter(top_post['media_metadata'].values()))['s']['u'].replace('&amp;', '&') 
+
+==> SAFE CODE [ 0.2617950439453125 s ] : elif 'url_overridden_by_dest' in top_post: 
+
+==> SAFE CODE [ 0.2048647403717041 s ] : image_url = top_post['url_overridden_by_dest'] 
+
+==> SAFE CODE [ 0.19275259971618652 s ] : else: 
+
+==> SAFE CODE [ 0.23954200744628906 s ] : image_url = None 
+
+==> SAFE CODE [ 0.2046794891357422 s ] : # Define the directory 
+
+==> SAFE CODE [ 0.21403217315673828 s ] : dir_name = "wallpapers 
+
+==> SAFE CODE [ 0.19967293739318848 s ] : os.makedirs(dir_name, exist_ok=True) 
+
+==> SAFE CODE [ 0.2058887481689453 s ] : # Download and save the first image 
+
+==> SAFE CODE [ 0.18070340156555176 s ] : if image_url: 
+
+==> SAFE CODE [ 0.24453449249267578 s ] : response = requests.get(image_url, stream=True) 
+
+==> SAFE CODE [ 0.19819903373718262 s ] : response.raise_for_status() 
+
+==> SAFE CODE [ 0.2169814109802246 s ] : file_name = os.path.join(dir_name, "top_wallpaper.jpg") 
+
+==> SAFE CODE [ 0.20964336395263672 s ] : with open(file_name, 'wb') as f: 
+
+==> SAFE CODE [ 0.2063143253326416 s ] : for chunk in response.iter_content(chunk_size=8192): 
+
+==> SAFE CODE [ 0.20140314102172852 s ] : f.write(chunk) 
+
+==> SAFE CODE [ 0.19334959983825684 s ] : print(f"Image saved to {file_name}") 
+
+==> SAFE CODE [ 0.19660568237304688 s ] : else: 
+
+==> SAFE CODE [ 0.2166914939880371 s ] : print("No images found in the top post.") 
+
+==> SAFE CODE [ 0.1822350025177002 s ] : def change_wallpaper_linux(image_path): 
+
+==> SAFE CODE [ 0.1937549114227295 s ] : # Use gsettings to change the wallpaper on GNOME-based systems 
+
+==> SAFE CODE [ 0.2405860424041748 s ] : command = "gsettings set org.gnome.desktop.background picture-uri-dark file://"+image_path 
+
+==> SAFE CODE [ 0.20278692245483398 s ] : os.system(command) 
+
+==> SAFE CODE [ 0.19850850105285645 s ] : if __name__ == "__main__": 
+
+==> SAFE CODE [ 0.21837997436523438 s ] : image_path = os.path.abspath("/home/tilak/wallpapers/top_wallpaper.jpg") # Replace with the image path 
+
+==> SAFE CODE [ 0.2127981185913086 s ] : change_wallpaper_linux(image_path) 
+
+==> SAFE CODE [ 0.20958304405212402 s ] : print("Wallpaper changed") 
+
+
+
+
+
+=================>          DATASET SIZE         <=================
+
+#DimTestSet: 48 
+
+
+
+=================>    FINAL RESULTS DETECTION    <=================
+
+#TotalVulnerabilities: 1 
+
+#SafeCode: 47 
+
+Vulnerability Rate: 2.08333 % 
+
+
+
+=================>        OWASP CATEGORIES       <=================
+
+#Injection: 0 
+
+#Cryptographic Failures: 1 
+
+#Security Misconfiguration: 0 
+
+#Broken Access Control: 0 
+
+#Identification and Authentication Failures: 0 
+
+#Security Logging and Monitoring Failures: 0 
+
+#Insecure Design: 0 
+
+#SSRF: 0 
+
+#Software and Data Integrity Failures: 0 
+
+
+
+=================>        EXECUTION TIME        <=================
+
+Runtime: 11.374797582626343 s 
+
+Average runtime per snippet: 0.236975 s 
+

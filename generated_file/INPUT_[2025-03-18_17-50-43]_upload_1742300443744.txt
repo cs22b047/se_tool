@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Vulnerability Scanner</title>
+    <style>
+        /PRODUCT_SYMBOL Global Styles PRODUCT_SYMBOL/
+        html {
+            box-sizing: border-box;
+        }
+        PRODUCT_SYMBOL,
+        PRODUCT_SYMBOL:before,
+        PRODUCT_SYMBOL:after {
+            box-sizing: inherit;
+        }
+        form {
+            width: 60%;
+            height: 100%;
+            margin: auto;
+        }
+        input[type=text] {
+            background-color: transparent;
+            width: 100%;
+            font-size: 80%;
+            text-align: center;
+            /PRODUCT_SYMBOLtext-transform: uppercase;PRODUCT_SYMBOL/
+            padding: 1rem 2rem;
+            border: 0;
+        }
+        label.file {
+            position: relative;
+            display: block;
+            width: 100%;
+            font-size: 80%;
+            text-align: center;
+            text-transform: uppercase;
+            border: 2px dashed #ccc;
+            margin: 3rem 0;
+            padding: 3rem;
+        }
+        label.file:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        label.file:active,
+        label.file.focus {
+            border-color: #09f;
+        }
+        input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            outline: 0;
+            border: 1px solid red;
+        }
+        .sml {
+            display: inline-block;
+            color: #eee;
+            background-color: rgba(0, 200, 0, 0.67);
+            border-radius: 1rem;
+            font-size: smaller;
+            margin: 1rem 0 0 0;
+            padding: 0.67rem 1rem;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: oklch(0.208 0.042 265.755);
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            color: aliceblue;
+        }
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+            text-transform: uppercase;
+            word-spacing: 1px;
+            letter-spacing: 2px;
+        }
+        h1 span {
+            margin-top: 40px;
+            text-transform: none;
+            font-size: .75em;
+            font-weight: normal;
+            font-style: italic;
+            font-family: "Playfair Display", "Bookman", serif;
+            color: #999;
+            letter-spacing: -0.005em;
+            word-spacing: 1px;
+            letter-spacing: none;
+        }
+        h1:before {
+            position: absolute;
+            left: 0;
+            bottom: 38px;
+            width: 60px;
+            height: 4px;
+            content: "";
+            left: 50%;
+            margin-left: -30px;
+            background-color: #dfdfdf;
+        }
+        /PRODUCT_SYMBOL Container PRODUCT_SYMBOL/
+        .container {
+            width: 100%;
+            margin: auto;
+            border-radius: 10px;
+        }
+        /PRODUCT_SYMBOL Input Styling PRODUCT_SYMBOL/
+        input,
+        textarea {
+            color: oklch(0.707 0.022 261.325);
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #codeInput {
+            display: block;
+            margin: 20px auto 20px auto;
+            resize: vertical;
+            width: 60%;
+            height: 500px;
+            background-color: oklch(0.372 0.044 257.287);
+        }
+        @media (max-width: 600px) {
+            #codeInput {
+                width: 100%;
+            }
+        }
+        /PRODUCT_SYMBOL Button Styling PRODUCT_SYMBOL/
+        button {
+            border-radius: 10px;
+            margin: 20px;
+            color: #eee;
+            background-color: oklch(0.129 0.042 264.695);
+            padding: 1rem 2rem;
+            border: 0;
+            outline: none;
+        }
+        button:hover,
+        button:focus {
+            background-color: #333;
+        }
+        button:active {
+            color: #fff;
+            background-color: #000;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        /PRODUCT_SYMBOL Report Section PRODUCT_SYMBOL/
+        #report {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            text-align: left;
+            white-space: pre-wrap;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: "Courier New", monospace;
+        }
+        /PRODUCT_SYMBOL Responsive Design PRODUCT_SYMBOL/
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Vulnerability Scanner</h1>
+        <textarea id="codeInput" rows="10" placeholder="Paste your code here..."></textarea>
+        <!-- <h3>Upload a File</h3>
+        <input type="file" id="fileInput">
+        <button onclick="uploadFile()">Upload</button> -->
+        <h3>OR</h3>
+        <input type="text" value="Click here and press tab to test keyboard interaction.">
+        <form method="post" action="/upload">
+            <label class="file">
+                Drop a file or click to select one
+                <input type="file" id="fileInput" multiple>
+                <!-- use multiple, even if it’s not allowed, to be able to show an info text -->
+            </label>
+        </form>
+        <button onclick="uploadFile()">Analyze Uploaded code</button>
+        <button onclick="analyzePastedCode()">Analyze Pasted Code</button>
+        <hr>
+        <h3>Vulnerability Report</h3>
+        <pre id="report">--Analysis will display here--</pre>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const fileInput = document.getElementById("fileInput");
+            const reportDiv = document.getElementById("report");
+            fileInput.addEventListener("change", function () {
+                const files = fileInput.files;
+                const label = fileInput.closest("label.file");
+                if (files.length === 0) {
+                    label.innerHTML = "Drop a file or click to select one";
+                    return;
+                }
+                if (files.length > 1) {
+                    label.innerHTML = "Sorry, multiple files are not allowed";
+                    return;
+                }
+                const file = files[0];
+                label.innerHTML = `${file.name} <br> 
+            <span class="sml">Type: ${file.type || "Unknown"}, ${Math.round(file.size / 1024)} KB</span>`;
+            });
+            function uploadFile() {
+                if (fileInput.files.length === 0) {
+                    alert("Please select a file");
+                    return;
+                }
+                reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute...";
+                const formData = new FormData();
+                formData.append("file", fileInput.files[0]);
+                fetch("http://10.30.34.198:5000/upload", {
+                    method: "POST
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        reportDiv.textContent = data.report || "No report generated.";
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
+                        reportDiv.textContent = "Error uploading file.";
+                    });
+            }
+            function analyzePastedCode() {
+                const codeInput = document.getElementById("codeInput").value.trim();
+                if (!codeInput) {
+                    alert("Please paste some code.");
+                    return;
+                }
+                reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute...";
+                fetch("http://10.30.34.198:5000/analyze", {
+                    method: "POST
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: codeInput })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        reportDiv.textContent = data.report || "No report generated.";
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
+                        reportDiv.textContent = "Error analyzing pasted code.";
+                    });
+            }
+            document.querySelector("button[onclick='uploadFile()']").addEventListener("click", uploadFile);
+            document.querySelector("button[onclick='analyzePastedCode()']").addEventListener("click", analyzePastedCode);
+        });
+    </script>
+</body>
+</html>

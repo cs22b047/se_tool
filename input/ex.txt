@@ -1,0 +1,53 @@
+import re
+from collections import Counter
+
+class LogAnalyzer:
+    def __init__(self, log_file):
+        self.log_file = log_file
+        self.logs = []
+        self.ip_counts = Counter()
+        self.status_counts = Counter()
+    
+    def read_logs(self):
+        """Reads log file and stores each line in a list"""
+        try:
+            with open(self.log_file, "r", encoding="utf-8") as file:
+                self.logs = file.readlines()
+            print(f"Successfully read {len(self.logs)} log entries.")
+        except FileNotFoundError:
+            print("Error: Log file not found.")
+            return False
+        return True
+
+    def analyze_logs(self):
+        """Extracts IP addresses and status codes from logs"""
+        log_pattern = re.compile(r'(?P<ip>\d+\.\d+\.\d+\.\d+) .* "(?P<method>GET|POST|PUT|DELETE) .*" (?P<status>\d+)')
+        
+        for log in self.logs:
+            match = log_pattern.search(log)
+            if match:
+                ip = match.group("ip")
+                status = match.group("status")
+                self.ip_counts[ip] += 1
+                self.status_counts[status] += 1
+
+    def display_results(self):
+        """Displays extracted insights from logs"""
+        print("\n==== Log Analysis Report ====\n")
+
+        print("Top 5 IP Addresses:")
+        for ip, count in self.ip_counts.most_common(5):
+            print(f"{ip} - {count} requests")
+
+        print("\nHTTP Status Codes:")
+        for status, count in self.status_counts.items():
+            print(f"Status {status}: {count} occurrences")
+
+if __name__ == "__main__":
+    log_file_path = "server.log"  # Change this to your log file path
+    analyzer = LogAnalyzer(log_file_path)
+    
+    if analyzer.read_logs():
+        analyzer.analyze_logs()
+        analyzer.display_results()
+

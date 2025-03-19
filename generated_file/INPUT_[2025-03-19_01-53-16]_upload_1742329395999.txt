@@ -1,0 +1,99 @@
+#include "ns3/core-module.h
+#include "ns3/network-module.h
+#include "ns3/internet-module.h
+#include "ns3/point-to-point-module.h
+#include "ns3/applications-module.h
+#include "ns3/flow-monitor-module.h
+#include "ns3/ipv4-global-routing-helper.h
+#include "ns3/aodv-module.h" 
+using namespace ns3;
+using namespace std;
+int main(int argc, charPRODUCT_SYMBOL argv[])
+{
+    Time::SetResolution (Time::NS);
+    LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+    NodeContainer nodes;
+    nodes.Create(10);
+    PointToPointHelper p2p;
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
+    p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
+    NetDeviceContainer meshD;
+    for(uint32_t i=0 ; i<10;i++)
+    {
+        for(uint32_t j=i+1; j<10; j++)
+        {
+           NetDeviceContainer link = p2p.Install(nodes.Get(i) , nodes.Get(j));
+           meshD.Add(link);
+        }
+    }
+    InternetStackHelper internet;
+    AodvHelper aodv; 
+    Ipv4ListRoutingHelper list;
+    list.Add(aodv, 10);
+    internet.SetRoutingHelper(list);
+    internet.Install(nodes);
+    Ipv4AddressHelper address;
+    address.SetBase("10.1.1.0" , "255.255.255.0");
+    Ipv4InterfaceContainer interfaces = address.Assign(meshD);
+    uint16_t port = 23;
+    Address hubLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), port));
+    PacketSinkHelper packetSinkHelper ("ns3::UdpSocketFactory", hubLocalAddress);
+    ApplicationContainer serverApp = packetSinkHelper.Install (nodes.Get(0)); 
+    serverApp.Start(Seconds(1.0));
+    serverApp.Stop(Seconds(60.0));
+    OnOffHelper onOffHelper("ns3::UdpSocketFactory", Address());
+    onOffHelper.SetAttribute("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+    onOffHelper.SetAttribute("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    onOffHelper.SetAttribute ("PacketSize", UintegerValue(1024));
+    onOffHelper.SetAttribute ("DataRate", DataRateValue(DataRate("40.96Kb/s")));
+    ApplicationContainer clientapps;
+    for(uint32_t i=1;i<10;i++)
+    {
+        AddressValue remoteAddress(InetSocketAddress(interfaces.GetAddress(0),port));
+        onOffHelper.SetAttribute("Remote", remoteAddress);
+        clientapps.Add(onOffHelper.Install(nodes.Get(i)));
+    }
+    clientapps.Start(Seconds(1.0));
+    clientapps.Stop(Seconds(60.0));
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+    FlowMonitorHelper flowmonHelper;
+    Ptr<FlowMonitor> flowMonitor = flowmonHelper.InstallAll();
+    p2p.EnablePcapAll("Mesh_tp");
+    Simulator::Stop(Seconds(65.0)); 
+    cout << "Running simulation\n";
+    Simulator::Run();
+    cout << "Simulation finished\n";
+    flowMonitor->CheckForLostPackets();
+    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
+    std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats();
+    for (auto& entry : stats)
+    {
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(entry.first);
+        cout << "Flow: " << entry.first << " Source Address: " << t.sourceAddress << " Destination Address: " << t.destinationAddress << "\n";
+        cout << "Source Port: " << t.sourcePort << " Destination Port: " << t.destinationPort << "\n";
+        cout << "Total Packets Transmitted: " << entry.second.txPackets << "\n";
+        cout << "Total Packets Received: " << entry.second.rxPackets << "\n";
+        cout << "Total Bytes Transmitted: " << entry.second.txBytes << "\n";
+        cout << "Total Bytes Received: " << entry.second.rxBytes << "\n";
+        cout<<endl;
+        cout << "Packet Delivery Ratio: " << (static_cast<double>(entry.second.rxPackets) / entry.second.txPackets) PRODUCT_SYMBOL 100 << " %\n";
+        cout << "Throughput: " << entry.second.rxBytes PRODUCT_SYMBOL 8.0 / (entry.second.timeLastRxPacket.GetSeconds() - entry.second.timeFirstRxPacket.GetSeconds()) / 1024 / 1024 << " Mbps\n";
+        double delay = (entry.second.delaySum.GetSeconds() / entry.second.rxPackets);
+        cout << "Network Delay: " << delay << " seconds\n";
+        cout << "Lost Packets: " << entry.second.lostPackets << "\n";
+        if (entry.second.rxPackets > 0)
+        {
+            double averageRtt = entry.second.delaySum.GetSeconds() / entry.second.rxPackets;
+            std::cout << "Average RTT: " << averageRtt PRODUCT_SYMBOL 1000 << " ms\n"; 
+        }
+        else
+        {
+            std::cout << "Average RTT: No packets received to calculate RTT.\n";
+        }
+        cout<<endl;
+    }
+    flowMonitor->SerializeToXmlFile("mesh.xml", true, true);
+    Simulator::Destroy();
+    return 0;  
+}

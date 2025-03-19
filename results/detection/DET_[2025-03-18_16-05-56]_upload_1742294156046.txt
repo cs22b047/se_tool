@@ -1,0 +1,63 @@
+==================>      SNIPPETS DETECTED      <========================
+|                                                                       |
+|           (!) VULN CODE : Vulnerable code snippets detected           |
+|           ==> SAFE CODE : Safe code snippet                           |
+|                                                                       |
+|                 [XXX s] : Execution Time per snippet                  |
+|                                                                       |
+=========================================================================
+
+==> SAFE CODE [ 0.1992197036743164 s ] : import re 
+
+==> SAFE CODE [ 0.18868708610534668 s ] : from collections import Counter 
+
+==> SAFE CODE [ 0.2251732349395752 s ] : class LogAnalyzer: 
+
+==> SAFE CODE [ 0.229644775390625 s ] : def __init__(self, log_file): 
+
+==> SAFE CODE [ 0.21175456047058105 s ] : self.log_file = log_file 
+
+==> SAFE CODE [ 0.20728349685668945 s ] : self.logs = [] 
+
+==> SAFE CODE [ 0.19777441024780273 s ] : self.ip_counts = Counter() 
+
+==> SAFE CODE [ 0.19757890701293945 s ] : self.status_counts = Counter() 
+
+==> SAFE CODE [ 0.2284839153289795 s ] : def read_logs(self): 
+
+==> SAFE CODE [ 0.17984795570373535 s ] : """Reads log file and stores each line in a list"" 
+
+==> SAFE CODE [ 0.1811387538909912 s ] : try: 
+
+==> SAFE CODE [ 0.20204424858093262 s ] : with open(self.log_file, "r", encoding="utf-8") as file: 
+
+==> SAFE CODE [ 0.18052005767822266 s ] : self.logs = file.readlines() 
+
+==> SAFE CODE [ 0.1735992431640625 s ] : print(f"Successfully read {len(self.logs)} log entries.") 
+
+==> SAFE CODE [ 0.17761635780334473 s ] : except FileNotFoundError: 
+
+==> SAFE CODE [ 0.17181062698364258 s ] : print("Error: Log file not found.") 
+
+==> SAFE CODE [ 0.1873464584350586 s ] : return False 
+
+==> SAFE CODE [ 0.1866741180419922 s ] : return True 
+
+==> SAFE CODE [ 0.19030213356018066 s ] : def analyze_logs(self): 
+
+==> SAFE CODE [ 0.18425893783569336 s ] : """Extracts IP addresses and status codes from logs"" 
+
+==> SAFE CODE [ 0.23397493362426758 s ] : log_pattern = re.compile(r'(?P<ip>\d+\.\d+\.\d+\.\d+) .* "(?P<method>GET|POST|PUT|DELETE) .*" (?P<status>\d+)') 
+
+==> SAFE CODE [ 0.17978882789611816 s ] : for log in self.logs: 
+
+==> SAFE CODE [ 0.1817471981048584 s ] : match = log_pattern.search(log) 
+
+==> SAFE CODE [ 0.20788288116455078 s ] : if match: 
+
+==> SAFE CODE [ 0.19949579238891602 s ] : ip = match.group("ip") 
+
+==> SAFE CODE [ 0.18516969680786133 s ] : status = match.group("status") 
+
+==> SAFE CODE [ 0.19295215606689453 s ] : self.ip_counts[ip] += 1 
+
