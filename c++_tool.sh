@@ -88,5 +88,28 @@ while IFS= read -r line; do
                 let inj=inj+1
             fi
         fi
+
+        #RULE 4: if exists a the following pattern: = (request.POST[])
+        echo "$line" | grep -q "(request.POST\["
+        if [ $? -eq 0 ]; then
+            # Exclude lines that contain safe patterns (for example, conditional checks)
+            echo "$line" | grep -E -v -q "if.*\.match\(|if obj_match\(|if os.path.isfile\(|args.send_static_file\("
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        #RULE 5: if exists a the following pattern: = (request.GET.get())
+        echo "$line" | grep -q "(request.GET.get(.*%"
+        if [ $? -eq 0 ]; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
     fi
 done < "$input"
