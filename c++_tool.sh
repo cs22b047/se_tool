@@ -111,5 +111,43 @@ while IFS= read -r line; do
             fi
         fi
 
+        # RULE 6: Unsafe Integer Parsing - atoi(), atof() without validation; isdidgit(), strtol() are much safer alternatives
+        echo "$line" | grep -q "atoi\(|atof\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q "if.*isdigit\(|strtol\("
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Unsafe Integer Parsing"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 7: Buffer Overflow - strcpy(), strcat() is unsafe as it copies/appends without checking size
+        echo "$line" | grep -q "strcpy\(|strcat\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q "strncpy\(|strncat\("
+            if [ $? -eq 0 ]; then
+                vuln="$vuln, Buffer Overflow"
+                if [ $soft_data -eq 0 ]; then  # buffer overflow currently considered as a data integrity
+                    let soft_data= soft_data + 1
+                fi
+            fi
+        fi
+
+        # RULE 8: Insecure Cryptography - MD5, SHA1, DES - these cryptography algorithms are weak - brtue-forced, collision attacks, etc
+        echo "$line" | grep -q "md5\(|sha1\(|des\("
+        if [ $? -eq 0 ]; then
+            # SHA-256 SHA-512 are secure, so they will not count as vulnerabilities
+            echo "$line" | grep -E -v -q "sha256\(|sha512\("
+            if [ $? -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failure"
+                if [ $crypto -eq 0 ]; then  
+                    let crypto= crypto + 1
+                fi
+            fi
+        fi
+
+
     fi
 done < "$input"
