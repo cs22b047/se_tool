@@ -125,47 +125,79 @@ while IFS= read -r line; do
 
 
         # RULE 4: Detect unsafe C++ network/command operations
-# Check for libcurl, system(), and SQL patterns
-echo "$line" | grep -q -E '\b(curl_easy_setopt|system|sqlite3_exec|fprintf|snprintf)\b'
-if [ $? -eq 0 ]; then
-    # Extract variables from vulnerable functions
-    var=$(echo "$line" | awk -F 'CURLOPT_URL,' '{print $2}' | awk -F '[ ,);]' '{print $1}')
-    if [ -z "$var" ]; then
-        var=$(echo "$line" | awk -F 'system(' '{print $2}' | awk -F '[);]' '{print $1}' | tr -d '"')
-    fi
-    if [ -z "$var" ]; then
-        var=$(echo "$line" | awk -F 'sqlite3_exec.*' '{print $2}' | awk -F '[ ,]' '{print $1}')
-    fi
-
-    if [ -n "$var" ]; then
-        # Check for unsafe variable usage patterns
-        echo "$line" | grep -q -E "\b$var\b.*(\+|%|\"|')"
-        concat_unsafe=$?
-        echo "$line" | grep -q -E "(sanitize|validate|escape|whitelist).*\b$var\b"
-        sanitized=$?
-
-        # Check for mitigations
-        if [ $concat_unsafe -eq 0 ] && [ $sanitized -ne 0 ]; then
-            # SSRF/Command Injection check
-            echo "$line" | grep -q -E '(CURLOPT_URL|system|sqlite3_exec)'
-            if [ $? -eq 0 ]; then
-                if [ $ssrf -eq 0 ]; then
-                    vuln="$vuln, SSRF/Command Injection"
-                    let ssrf=ssrf+1
-                fi
+        # Check for libcurl, system(), and SQL patterns
+        echo "$line" | grep -q -E '\b(curl_easy_setopt|system|sqlite3_exec|fprintf|snprintf)\b'
+        if [ $? -eq 0 ]; then
+            #Extract variables from vulnerable functions
+            var=$(echo "$line" | awk -F 'CURLOPT_URL,' '{print $2}' | awk -F '[ ,);]' '{print $1}')
+            if [ -z "$var" ]; then
+                var=$(echo "$line" | awk -F 'system(' '{print $2}' | awk -F '[);]' '{print $1}' | tr -d '"')
+            fi
+            if [ -z "$var" ]; then
+                var=$(echo "$line" | awk -F 'sqlite3_exec.*' '{print $2}' | awk -F '[ ,]' '{print $1}')
             fi
 
-            # Authentication failure check
-            echo "$line" | grep -q -E '(Authorization|Bearer|Token).*\b$var\b'
-            if [ $? -eq 0 ]; then
-                if [ $auth_fail -eq 0 ]; then
-                    vuln="$vuln, Authentication Failures"
+            if [ -n "$var" ]; then
+                # Check for unsafe variable usage patterns
+                echo "$line" | grep -q -E "\b$var\b.*(\+|%|\"|')"
+                concat_unsafe=$?
+                echo "$line" | grep -q -E "(sanitize|validate|escape|whitelist).*\b$var\b"
+                sanitized=$?
+
+                # Check for mitigations
+                if [ $concat_unsafe -eq 0 ] && [ $sanitized -ne 0 ]; then
+                    # SSRF/Command Injection check
+                    echo "$line" | grep -q -E '(CURLOPT_URL|system|sqlite3_exec)'
+                    if [ $? -eq 0 ]; then
+                        if [ $ssrf -eq 0 ]; then
+                            vuln="$vuln, SSRF/Command Injection"
+                            let ssrf=ssrf+1
+                        fi
+                    fi
+
+                # Authentication failure check
+                    echo "$line" | grep -q -E '(Authorization|Bearer|Token).*\b$var\b'
+                    if [ $? -eq 0 ]; then
+                        if [ $auth_fail -eq 0 ]; then
+                            vuln="$vuln, Authentication Failures"
+                            let auth_fail=auth_fail+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 5: Detect unsafe returns of network operations/user input (C++)
+        #RULE 5: if exists a the following pattern: return requests.get(...)
+        echo "$line" | grep -q -E '\breturn\b.*\b(curl_easy_perform|system|sqlite3_exec|fprintf|std::cout)\b'
+        if [ $? -eq 0 ]; then
+            # Extract the returned variable/expression
+            var=$(echo "$line" | awk -F 'return ' '{print $2}' | awk -F '[ ;()+]' '{print $1}')
+            
+            # Check for mitigations
+            echo "$line" | grep -E -q -i "sanitize\($var|validate\($var|escape\($var"
+            sanitized=$?
+            
+            # Check context of variable usage
+            echo "$line" | grep -q -E "(CURLOPT_URL|Authorization|SELECT|system).*\b$var\b"
+            unsafe_usage=$?
+            
+            if [ $sanitized -ne 0 ] && [ $unsafe_usage -eq 0 ]; then
+                # SSRF check
+                echo "$line" | grep -q "CURLOPT_URL"
+                if [ $? -eq 0 ] && [ $ssrf -eq 0 ]; then
+                    vuln="$vuln, SSRF"
+                    let ssrf=ssrf+1
+                fi
+                
+                # Authentication failure check
+                echo "$line" | grep -q -E "(Authorization|Token|Bearer).*\b$var\b"
+                if [ $? -eq 0 ] && [ $auth_fail -eq 0 ]; then
+                    vuln="$vuln, Identification and Authentication Failures"
                     let auth_fail=auth_fail+1
                 fi
             fi
         fi
-    fi
-fi
 
     fi
 done < "$input"
