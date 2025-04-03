@@ -55,7 +55,7 @@ while IFS= read -r line; do
         ins_des=0; # Insecure Design
         ssrf=0; # SSRF
         soft_data=0; # Software and Data Integrity Failures
-
+        cpp_found=0; # Initialize a flag to ensure we tag the vulnerability only once.
 
         #RULE 1: if exists a the following pattern: = (..+request.args.get())
         echo $line | grep -E -q "\+request.args.get\(|\+ request.args.get\("
@@ -63,7 +63,19 @@ while IFS= read -r line; do
             if [ $inj -eq 0 ]; then # Toggle the category variable for the specific snippet
                 vuln="$vuln, Injection"
                 let inj=inj+1
-            fi
+            fi"import yaml\n\n\ndef yaml_load(filename):\n    '''\n    Use the filename variable to open a file, \n    load its contents into a variable with yaml, and return it.\n    '''\n    with open(filename, 'r') as f:\n        data = yaml.load(f, Loader=yaml.BaseLoader)\n        return data"
+        fi
+
+        #RULE 1: Check if the line contains req.url_params.get(" which retrieves the query parameter
+        echo "$line" | grep -E -q 'req\.url_params\.get\("'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -q "\+?(std::stoi|stoi)("
+                if [ $? -eq 0 ]; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, Injection"
+                        let inj=inj+1
+                    fi
+                fi
         fi
 
         #RULE 2: if exists a the following pattern: = (..+request.args[])
@@ -80,6 +92,19 @@ while IFS= read -r line; do
             fi
         fi
 
+        #RULE 2: std::stoi( ... query_map.get(
+        echo "$line" | grep -E -q 'std::stoi\(.*query_map\.get\('
+        if [ $? -eq 0 ]; then
+            # Exclude lines that match specific unwanted patterns
+            echo "$line" | grep -E -v -q 'if\s*\(.*std::regex_match\(|if\s+obj_match\(|if\s+std::filesystem::exists\(|args\.send_static_file\('
+            if [ $? -eq 0 ]; then
+                if [ $cpp_found -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1 
+                fi
+            fi
+        fi
+
         #RULE 3: if exists a the following pattern: = (request.POST.get())
         echo "$line" | grep -q "(request.POST.get(.*%"
         if [ $? -eq 0 ]; then
@@ -89,27 +114,58 @@ while IFS= read -r line; do
             fi
         fi
 
-        #RULE 4: if exists a the following pattern: = (request.POST[])
-        echo "$line" | grep -q "(request.POST\["
-        if [ $? -eq 0 ]; then
-            # Exclude lines that contain safe patterns (for example, conditional checks)
-            echo "$line" | grep -E -v -q "if.*\.match\(|if obj_match\(|if os.path.isfile\(|args.send_static_file\("
-            if [ $? -eq 0 ]; then
-                if [ $bac -eq 0 ]; then
-                    vuln="$vuln, Broken Access Control"
-                    let bac=bac+1
-                fi
-            fi
-        fi
-
-        #RULE 5: if exists a the following pattern: = (request.GET.get())
-        echo "$line" | grep -q "(request.GET.get(.*%"
+        #RULE 3: Check for unsafe use of user input in format strings (C++)
+        echo "$line" | grep -q -E '\b(sprintf|printf|fprintf|snprintf|syslog)\s*\(.*((".*%[^"]*".*,(.*(getenv|cgiParam|POST_DATA))|(getenv|cgiParam|POST_DATA).*\)))'
         if [ $? -eq 0 ]; then
             if [ $inj -eq 0 ]; then
                 vuln="$vuln, Injection"
                 let inj=inj+1
             fi
         fi
+
+
+        # RULE 4: Detect unsafe C++ network/command operations
+# Check for libcurl, system(), and SQL patterns
+echo "$line" | grep -q -E '\b(curl_easy_setopt|system|sqlite3_exec|fprintf|snprintf)\b'
+if [ $? -eq 0 ]; then
+    # Extract variables from vulnerable functions
+    var=$(echo "$line" | awk -F 'CURLOPT_URL,' '{print $2}' | awk -F '[ ,);]' '{print $1}')
+    if [ -z "$var" ]; then
+        var=$(echo "$line" | awk -F 'system(' '{print $2}' | awk -F '[);]' '{print $1}' | tr -d '"')
+    fi
+    if [ -z "$var" ]; then
+        var=$(echo "$line" | awk -F 'sqlite3_exec.*' '{print $2}' | awk -F '[ ,]' '{print $1}')
+    fi
+
+    if [ -n "$var" ]; then
+        # Check for unsafe variable usage patterns
+        echo "$line" | grep -q -E "\b$var\b.*(\+|%|\"|')"
+        concat_unsafe=$?
+        echo "$line" | grep -q -E "(sanitize|validate|escape|whitelist).*\b$var\b"
+        sanitized=$?
+
+        # Check for mitigations
+        if [ $concat_unsafe -eq 0 ] && [ $sanitized -ne 0 ]; then
+            # SSRF/Command Injection check
+            echo "$line" | grep -q -E '(CURLOPT_URL|system|sqlite3_exec)'
+            if [ $? -eq 0 ]; then
+                if [ $ssrf -eq 0 ]; then
+                    vuln="$vuln, SSRF/Command Injection"
+                    let ssrf=ssrf+1
+                fi
+            fi
+
+            # Authentication failure check
+            echo "$line" | grep -q -E '(Authorization|Bearer|Token).*\b$var\b'
+            if [ $? -eq 0 ]; then
+                if [ $auth_fail -eq 0 ]; then
+                    vuln="$vuln, Authentication Failures"
+                    let auth_fail=auth_fail+1
+                fi
+            fi
+        fi
+    fi
+fi
 
     fi
 done < "$input"
