@@ -200,4 +200,338 @@ while IFS= read -r line; do
         fi
 
     fi
+
+    # RULE 6_CPP: Detect unsafe handling of user input in C++ (cin, argv, getline) leading to Injection or Logging failures
+        # Check for common C++ input methods: cin, getline, argv
+        echo $line | grep -q -E "std::cin >>|getline\(|argv\[|scanf\("
+        if [ $? -eq 0 ]; then
+            # Extract the variable name (handles cin >> var, getline(cin, var), etc.)
+            var=$(echo $line | sed -n -E 's/.*(std::cin >>|getline\(.*, *)([a-zA-Z_][a-zA-Z0-9_]*).*/\2/p')
+            if [ -z "$var" ]; then
+                # Fallback for argv cases
+                var=$(echo $line | sed -n -E 's/.*argv\[[0-9]+\][^=]*=[^=]*([a-zA-Z_][a-zA-Z0-9_]*).*/\1/p')
+            fi
+
+            if [ -n "$var" ]; then
+                # Check if the variable is used unsafely (similar to Python rule but C++-style)
+                # FIRST CHECK: String concatenation or assignment (+=, =, etc.)
+                echo $line | grep -q -E "\\+\\s*$var|=\\s*$var|\\+=\\s*$var|<<\\s*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "std::regex_match|boost::regex_match|input_validation\("
+                    if [ $? -eq 0 ]; then
+                        echo $line | grep -E -v -q "escape\\(\\s*$var|sanitize\\(\\s*$var|htmlspecialchars\\(\\s*$var"
+                        if [ $? -eq 0 ]; then
+                            if [ $inj -eq 0 ]; then
+                                vuln="$vuln, Injection"
+                                let inj=inj+1
+                            fi
+                            if [ $sec_log -eq 0 ]; then
+                                vuln="$vuln, Security Logging and Monitoring Failures"
+                                let sec_log=sec_log+1
+                            fi
+                        fi
+                    fi
+                else
+                    # SECOND CHECK: Used in a function call (SQL, system(), etc.)
+                    echo $line | grep -q -E "\\(.*$var.*\\)"
+                    if [ $? -eq 0 ]; then
+                        echo $line | grep -E -v -q "std::regex_match|boost::regex_match|input_validation\("
+                        if [ $? -eq 0 ]; then
+                            echo $line | grep -E -v -q "escape\\(\\s*$var|sanitize\\(\\s*$var|htmlspecialchars\\(\\s*$var"
+                            if [ $? -eq 0 ]; then
+                                if [ $inj -eq 0 ]; then
+                                    vuln="$vuln, Injection"
+                                    let inj=inj+1
+                                fi
+                                if [ $sec_log -eq 0 ]; then
+                                    vuln="$vuln, Security Logging and Monitoring Failures"
+                                    let sec_log=sec_log+1
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 7: Detect unsafe handling of user input in C++ (cin, getline, argv) leading to Injection or Logging failures
+        # Check for common C++ input methods: std::cin, getline, argv, scanf
+        echo $line | grep -q -E "std::cin >>|getline\(.*,|argv\[[0-9]+\]|scanf\("
+        if [ $? -eq 0 ]; then
+            # Extract the variable name (handles cin >> var, getline(cin, var), etc.)
+            var=$(echo $line | sed -n -E 's/.*(std::cin >>|getline\(.*, *|argv\[[0-9]+\][^=]*= *)([a-zA-Z_][a-zA-Z0-9_]*).*/\2/p')
+            
+            # Fallback for scanf cases
+            if [ -z "$var" ]; then
+                var=$(echo $line | sed -n -E 's/.*scanf\(.*%[^,]*,[^&]*&([a-zA-Z_][a-zA-Z0-9_]*).*/\1/p')
+            fi
+
+            if [ -n "$var" ]; then
+                # Remove any trailing semicolons or commas (C++ specific)
+                var=$(echo "$var" | sed 's/[;,]*$//')
+
+                # Check if the variable is used unsafely (similar to Python rule but C++-style)
+                # FIRST CHECK: String concatenation or assignment (+, =, +=, etc.)
+                echo $line | grep -q -E "\\b$var\\b\\s*\\+|=\\s*\\b$var\\b|\\+=\\s*\\b$var\\b|<<\\s*\\b$var\\b"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "std::regex_match|boost::regex_match|input_validation\\(|input_sanitize\\("
+                    if [ $? -eq 0 ]; then
+                        echo $line | grep -E -v -q "escape\\(\\s*$var|sanitize\\(\\s*$var|htmlspecialchars\\(\\s*$var|SQLite3::escape\\("
+                        if [ $? -eq 0 ]; then
+                            if [ $inj -eq 0 ]; then
+                                vuln="$vuln, Injection"
+                                let inj=inj+1
+                            fi
+                            if [ $sec_log -eq 0 ]; then
+                                vuln="$vuln, Security Logging and Monitoring Failures"
+                                let
+
+        # RULE 8: Detect unsafe LDAP server configurations in C++
+        # Check for common C++ LDAP initialization patterns
+        echo $line | grep -q -E "ldap_init|ldap_sslinit|ldap_initialize|ldap_open"
+        if [ $? -eq 0 ]; then
+            # Extract the LDAP server variable name
+            var=$(echo $line | sed -n -E 's/.*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(ldap_init|ldap_sslinit|ldap_initialize|ldap_open)\(.*/\1/p')
+            
+            if [ -n "$var" ]; then
+                # Check if the LDAP server variable is used unsafely
+                # FIRST CHECK: Used in LDAP bind/search without proper escaping
+                echo $line | grep -q -E "ldap_simple_bind|ldap_bind|ldap_search_ext|ldap_search_s.*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ldap -eq 0 ]; then
+                            vuln="$vuln, LDAP Injection"
+                            let ldap=ldap+1
+                        fi
+                    fi
+                fi
+
+                # SECOND CHECK: Used in string concatenation for DN construction
+                echo $line | grep -q -E "\\+\\s*$var|=\\s*$var|\\+=\\s*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ldap -eq 0 ]; then
+                            vuln="$vuln, LDAP Injection"
+                            let ldap=ldap+1
+                        fi
+                    fi
+                fi
+
+                # THIRD CHECK: Used in filter construction without escaping
+                echo $line | grep -q -E "ldap_search.*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape_filter|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ldap -eq 0 ]; then
+                            vuln="$vuln, LDAP Injection"
+                            let ldap=ldap+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 9: Detect unsafe LDAP search operations in C++
+        # Check for common C++ LDAP search patterns
+        echo $line | grep -q -E "ldap_search(_ext|_st|_s|_ext_s)?\\("
+        if [ $? -eq 0 ]; then
+            # Extract the search filter variable name
+            var=$(echo $line | sed -n -E 's/.*ldap_search[^,]*,[^,]*,[^,]*,[^,]*,\s*([a-zA-Z_][a-zA-Z0-9_]*)[^,)]*.*/\1/p')
+            
+            # Fallback for different search function variants
+            if [ -z "$var" ]; then
+                var=$(echo $line | sed -n -E 's/.*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*ldap_search[^,]*,[^,]*,[^,]*,[^,]*,[^,)]*.*/\1/p')
+            fi
+
+            if [ -n "$var" ]; then
+                # Remove any trailing characters that might be part of the syntax
+                var=$(echo "$var" | sed 's/[^a-zA-Z0-9_].*//')
+
+                # Check if the search filter is used unsafely
+                # FIRST CHECK: Direct usage in ldap_search without validation
+                echo $line | grep -q -E "ldap_search[^(]*\\([^,]*,[^,]*,[^,]*,[^,]*,\\s*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape_filter|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ldap -eq 0 ]; then
+                            vuln="$vuln, LDAP Injection"
+                            let ldap=ldap+1
+                        fi
+                    fi
+                fi
+
+                # SECOND CHECK: String concatenation in filter construction
+                echo $line | grep -q -E "\\b$var\\b\\s*\\+|=\\s*\\b$var\\b|\\+=\\s*\\b$var\\b"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape_filter|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ldap -eq 0 ]; then
+                            vuln="$vuln, LDAP Injection"
+                            let ldap=ldap+1
+                        fi
+                    fi
+                fi
+
+                # THIRD CHECK: Used in return value or subsequent operations
+                echo $line | grep -q -E "return\\s*\\b$var\\b|\\b$var\\b\\s*=\\s*ldap_first_entry"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "ldap_escape_filter|ber_escape"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 10: Detect unsafe comparison of request parameters in C++ web frameworks
+        # Check for common C++ web framework parameter patterns
+        echo $line | grep -q -E "req\\.getParam|req\\.getQuery|request\\["
+        if [ $? -eq 0 ]; then
+            # Check for direct comparison (==) with the parameter
+            echo $line | grep -q -E "==\\s*[a-zA-Z_][a-zA-Z0-9_]*|\\bstrcmp\\("
+            if [ $? -eq 0 ]; then
+                # Extract the variable being compared
+                var=$(echo $line | sed -n -E 's/.*==\s*([a-zA-Z_][a-zA-Z0-9_]*).*/\1/p')
+                if [ -z "$var" ]; then
+                    var=$(echo $line | sed -n -E 's/.*strcmp\([^,]*,\s*([a-zA-Z_][a-zA-Z0-9_]*).*/\1/p')
+                fi
+
+                if [ -n "$var" ]; then
+                    # Check for missing validation/sanitization
+                    echo $line | grep -E -v -q "regex_match|input_validation|sanitize\\("
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $bac -eq 0 ]; then
+                            vuln="$vuln, Broken Access Control"
+                            let bac=bac+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 11: Detect unsafe URL parsing in C++
+        # Check for common C++ URL parsing functions
+        echo $line | grep -q -E "Poco::URI|boost::urls::parse_uri|QUrl::fromUserInput|uri::parse|URLParser::parse"
+        if [ $? -eq 0 ]; then
+            # Extract the variable name
+            var=$(echo $line | sed -n -E 's/.*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(Poco::URI|boost::urls::parse_uri|QUrl::fromUserInput|uri::parse|URLParser::parse)\(.*/\1/p')
+            
+            if [ -n "$var" ]; then
+                # Check for unsafe usage patterns
+                # FIRST CHECK: Direct component access without validation
+                echo $line | grep -q -E "$var\\.get(Host|Path|Query|Port)"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "isValid\\(|isSecure\\(|validateUrl\\(|allowedDomains\\.count"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                        if [ $ssrf -eq 0 ]; then
+                            vuln="$vuln, SSRF"
+                            let ssrf=ssrf+1
+                        fi
+                    fi
+                fi
+
+                # SECOND CHECK: String concatenation with URL components
+                echo $line | grep -q -E "\\+\\s*$var\\.|\\+=\\s*$var\\."
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "escapeUrl\\(|sanitize\\(|validateComponent"
+                    if [ $? -eq 0 ]; then
+                        if [ $inj -eq 0 ]; then
+                            vuln="$vuln, Injection"
+                            let inj=inj+1
+                        fi
+                    fi
+                fi
+
+                # THIRD CHECK: Used in network operations
+                echo $line | grep -q -E "curl_easy_setopt.*$var|HttpRequest::setUrl.*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "isWhitelisted\\(|validateExternalUrl"
+                    if [ $? -eq 0 ]; then
+                        if [ $ssrf -eq 0 ]; then
+                            vuln="$vuln, SSRF"
+                            let ssrf=ssrf+1
+                        fi
+                    fi
+                fi
+
+                # FOURTH CHECK: Used in file operations
+                echo $line | grep -q -E "std::ifstream.*$var|std::ofstream.*$var"
+                if [ $? -eq 0 ]; then
+                    echo $line | grep -E -v -q "isLocalPath\\(|validateFilePath"
+                    if [ $? -eq 0 ]; then
+                        if [ $pt -eq 0 ]; then
+                            vuln="$vuln, Path Traversal"
+                            let pt=pt+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 12: Detect unsafe method chaining after URL parsing in C++
+        # Check for method calls on URL parsing objects
+        echo $line | grep -P -q "(Poco::URI|QUrl|boost::urls::url_view|uri::parse)\(.*?\)\.[a-zA-Z_]*"
+        if [ $? -eq 0 ]; then
+            # Check for unsafe direct usage without validation
+            echo $line | grep -E -v -q "isValid\\(|isSecure\\(|validateUrl\\(|allowedDomains\\.count"
+            if [ $? -eq 0 ]; then
+                # Check for common vulnerable method calls
+                echo $line | grep -P -q "getHost\\(|getPath\\(|getQuery\\(|toString\\(|authority\\("
+                if [ $? -eq 0 ]; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, Injection"
+                        let inj=inj+1
+                    fi
+                    if [ $ssrf -eq 0 ]; then
+                        vuln="$vuln, SSRF"
+                        let ssrf=ssrf+1
+                    fi
+                fi
+            fi
+        fi
+
+        # Additional check for pointer-based URL objects
+        echo $line | grep -P -q "(Poco::URI|QUrl|boost::urls::url_view|uri::parse)\(.*?\)->[a-zA-Z_]*"
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "isValid\\(|isSecure\\(|validateUrl\\(|allowedDomains\\.count"
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
 done < "$input"
