@@ -533,5 +533,137 @@ while IFS= read -r line; do
             fi
         fi
 
+        # RULE 13: Detect unsafe return of URL parsing results
+        echo $line | grep -q -E "return (Poco::URI|QUrl|boost::urls::parse_uri|uri::parse)\("
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "isValid\\(|isSecure\\(|validateUrl\\("
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 14: Detect unsafe session variable access
+        echo $line | grep -q -E "session\\[.*\\]"
+        if [ $? -eq 0 ]; then
+            # Check for common framework session patterns
+            echo $line | grep -E -v -q "isAuthenticated\\(|hasPermission\\(|validateSession\\("
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        # RULE 15: Detect unsafe request parameter access
+        # Check for common C++ web framework parameter patterns
+        echo $line | grep -q -E "req\\.get(Param|Query|Header|Cookie)|request\\["
+        if [ $? -eq 0 ]; then
+            # Check for direct usage without validation
+            echo $line | grep -E -v -q "regex_match|input_validation|sanitize\\("
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 16: Detect unsafe JSON request handling
+        echo $line | grep -q -E "req\\.getJSON|request\\.json|json::parse"
+        if [ $? -eq 0 ]; then
+            # Check for direct field access without validation
+            echo $line | grep -E -v -q "validateJson|sanitizeJson|hasField\\("
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+       # RULE 17: Detect unsafe return of request parameters
+        echo $line | grep -q -E "return req\\.(getParam|getQuery|getHeader|getCookie)\("
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "regex_match|input_validation|sanitize\\("
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 18: Detect unsafe array-style request parameter access
+        echo $line | grep -q -E "return req\\["
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "regex_match|input_validation|sanitize\\("
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 19: Detect unsafe file upload handling
+        echo $line | grep -q -E "req\\.getFile|req\\.files\\["
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "checkFileExtension|validateFileType|sanitizeFilename"
+            if [ $? -eq 0 ]; then
+                if [ $ins_des -eq 0 ]; then
+                    vuln="$vuln, Insecure Design"
+                    let ins_des=ins_des+1
+                fi
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 20: Detect unsafe raw request data access
+        echo $line | grep -q -E "return req\\.(getData|readBody|rawContent)\("
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "validateContent|sanitizeInput|checkContentType"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 21: Detect unsafe request data assignment
+        echo $line | grep -q -E "=\\s*req\\.(getData|readBody|rawContent)\\("
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "validateContent|sanitizeInput|checkContentType"
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        # RULE 22: Detect unsafe environment variable or JSON parsing
+        echo $line | grep -q -E "=\\s*(std::getenv|json::parse|parseFromString)\\("
+        if [ $? -eq 0 ]; then
+            echo $line | grep -E -v -q "validateEnvVar|sanitizeJson|checkJsonSchema"
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+    
     fi
 done < "$input"
