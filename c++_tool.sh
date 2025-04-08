@@ -654,16 +654,212 @@ while IFS= read -r line; do
         fi
 
         # RULE 22: Detect unsafe environment variable or JSON parsing
-        echo $line | grep -q -E "=\\s*(std::getenv|json::parse|parseFromString)\\("
+        # RULE 22: Detect unsafe use of env vars/JSON data (C++)
+# Check for getenv() and JSON parsing patterns
+        echo "$line" | grep -q -E '\b(getenv|std::getenv|json::parse|nlohmann::json::parse)\b'
         if [ $? -eq 0 ]; then
-            echo $line | grep -E -v -q "validateEnvVar|sanitizeJson|checkJsonSchema"
-            if [ $? -eq 0 ]; then
-                if [ $bac -eq 0 ]; then
-                    vuln="$vuln, Broken Access Control"
-                    let bac=bac+1
+            # Extract variable from env/JSON parsing
+            var=$(echo "$line" | awk -F '=' '{print $1}' | tr -d ' ' | tr -d ';')
+            
+            # Check for JSON parsing
+            if echo "$line" | grep -q -E 'json::parse|nlohmann::json::parse'; then
+                json_var=$var
+            fi
+
+            # Check for unsafe usage patterns
+            if [ -n "$var" ]; then
+                # Check for command injection patterns
+                echo "$line" | grep -q -E '\bsystem\s*\(.*\b'"$var"'\b'
+                cmd_injection=$?
+                
+                # Check for SQL concatenation
+                echo "$line" | grep -q -E '\bsqlite3_exec\b.*\b'"$var"'\b'
+                sql_risk=$?
+                
+                # Check for path traversal
+                echo "$line" | grep -q -E 'open\s*\(.*\b'"$var"'\b'
+                file_risk=$?
+                
+                # Check for auth token usage
+                echo "$line" | grep -q -E '(Authorization|Token|Session).*\b'"$var"'\b'
+                auth_risk=$?
+                
+                # Check for JSON validation
+                echo "$line" | grep -q -E '(validate|sanitize|escape).*\b'"$var"'\b'
+                sanitized=$?
+                
+                # Flag vulnerabilities
+                if [ $sanitized -ne 0 ]; then
+                    if { [ $cmd_injection -eq 0 ] || [ $sql_risk -eq 0 ] || [ $file_risk -eq 0 ]; } && [ $bac -eq 0 ]; then
+                        vuln="$vuln, Broken Access Control"
+                        let bac=bac+1
+                    fi
+                    
+                    if [ $auth_risk -eq 0 ] && [ $auth_fail -eq 0 ]; then
+                        vuln="$vuln, Authentication Failures"
+                        let auth_fail=auth_fail+1
+                    fi
+                fi
+                
+                # Additional JSON validation check
+                if [ -n "$json_var" ]; then
+                    echo "$line" | grep -q -E "$json_var\s*\[.*\]\s*="
+                    if [ $? -eq 0 ] && [ $bac -eq 0 ]; then
+                        vuln="$vuln, Insecure Deserialization"
+                        let bac=bac+1
+                    fi
                 fi
             fi
         fi
-    
+
+
+        #RULE C++23: if exists a the following pattern: = getenv() or = json::parse()
+        source_function="getenv\\\(|json::parse\\\("
+        num_occ=$(echo "$line" | awk -F "$source_function" '{print NF-1}')
+        i=1;
+        split=0;
+        check=0;
+
+        while [ $i -le $num_occ ]; do
+            var=$(echo "$line" | awk -F "$source_function" -v i="$i" '{print $i}' | awk '{print $NF}')
+            
+            if [ -z "$var" ]; then
+                pass=1;
+            else
+                last_char=$(echo "${var: -1}")
+                if [ $name_os = "Darwin" ]; then
+                    var=${var:0:$((${#var} - 1))}
+                elif [ $name_os = "Linux" ]; then
+                    var=${var::-1}
+                fi
+
+                # Strip variable usages to avoid false positives
+                new_line=$(echo "$line" \
+                    | sed "s/$var(/func(/g" \
+                    | sed "s/$var =/ =/g" \
+                    | sed "s/$var=/ =/g" \
+                    | sed "s/\"$var/ /g" \
+                    | sed "s/$var\"/ /g" \
+                    | sed "s/'$var'/ /g")
+
+                # FIRST CHECK: Variable used in expressions or command
+                echo "$new_line" | grep -E -q "\+\b$var\b|\+ \b$var\b|=\b$var\b|= \b$var\b"
+                if [ $? -eq 0 ]; then
+                    echo "$new_line" | grep -E -v -q "std::filesystem::exists|std::optional"
+                    if [ $? -eq 0 ]; then
+                        echo "$new_line" | grep -v -P -i -q "system\(.*(\b$var\b).*?\)|exec\(.*(\b$var\b).*?\)"
+                        if [ $? -eq 0 ]; then
+                            echo "$new_line" | grep -E -v -q "escape\( *$var *\)"
+                            if [ $? -eq 0 ]; then
+                                if [ $bac -eq 0 ]; then
+                                    vuln="$vuln, Broken Access Control"
+                                    let bac=bac+1
+                                fi
+                            fi
+                        fi
+                    fi
+                else
+                    # SECOND CHECK: Direct key:value usage (e.g., json["$var"])
+                    echo "$new_line" | grep -E -q "\b$var\b:|\b$var\b :"
+                    if [ $? -eq 0 ]; then
+                        echo "$new_line" | grep -E -v -q "std::filesystem::exists|std::optional"
+                        if [ $? -eq 0 ]; then
+                            echo "$new_line" | grep -v -P -i -q "system\(.*(\b$var\b).*?\)"
+                            if [ $? -eq 0 ]; then
+                                echo "$new_line" | grep -E -v -q "escape\( *$var *\)"
+                                if [ $? -eq 0 ]; then
+                                    if [ $bac -eq 0 ]; then
+                                        vuln="$vuln, Broken Access Control"
+                                        let bac=bac+1
+                                    fi
+                                fi
+                            fi
+                        fi
+                    else
+                        # THIRD CHECK: Function use like func($var)
+                        echo "$new_line" | grep -P -q "\(.*(\b$var\b).*?\)"
+                        if [ $? -eq 0 ]; then
+                            echo "$new_line" | grep -E -v -q "std::filesystem::exists|escape\( *$var *\)"
+                            if [ $? -eq 0 ]; then
+                                if [ $bac -eq 0 ]; then
+                                    vuln="$vuln, Broken Access Control"
+                                    let bac=bac+1
+                                fi
+                            fi
+                        else
+                            # FOURTH CHECK: Return $var or method use like $var.method()
+                            echo "$new_line" | grep -E -q "return \b$var\b| \b$var\b\.[a-zA-Z]*\("
+                            if [ $? -eq 0 ]; then
+                                echo "$new_line" | grep -E -v -q "escape\( *$var *\)"
+                                if [ $? -eq 0 ]; then
+                                    if [ $bac -eq 0 ]; then
+                                        vuln="$vuln, Broken Access Control"
+                                        let bac=bac+1
+                                    fi
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+            let i=i+1;
+            let check=num_occ+1;
+        done
+
+        #RULE C++24: if exists a the following pattern: returnType functionName(var1,var2,...,varn)
+        source_function="[a-zA-Z_:][a-zA-Z0-9_:<>]*[ ]+[a-zA-Z_][a-zA-Z0-9_]*[ ]*\\(" # matches "int func(", "std::string foo(", etc.
+        num_occ=$(echo "$line" | awk -F "$source_function" '{print NF-1}')
+        i=1;
+        split=0;
+        check=0;
+        num_commas=0;
+        num_vars=0;
+
+        while [ $i -le $num_occ ]; do
+            let split=i;
+            var=$(echo "$line" | awk -F "$source_function" -v i="$i" '{print $(i+1)}' | cut -d')' -f1)
+            if [ -z "$var" ]; then
+                pass=1
+            else
+                if [[ "$var" == *","* ]]; then
+                    num_commas=$(echo "$var" | tr -cd ',' | wc -c)
+                fi
+                let num_vars=num_commas+1
+                j=1
+                while [ $j -le $num_vars ]; do
+                    var_part=$(echo "$var" | awk -v j="$j" -F, '{print $j}' | awk '{print $NF}' | sed 's/[^a-zA-Z0-9_]//g')
+                    
+                    # clean the current line of this var_part to avoid false positives
+                    new_line=$(echo "$line" | sed "s/$var_part(/func(/g" | sed "s/$var_part =/ =/g" | sed "s/$var_part=/ =/g" | sed "s/'$var_part'/ /g" | sed "s/\"$var_part\"/ /g" | sed "s/$var_part\"/ /g" | sed "s/\"$var_part/ /g" | sed "s/ $var_part / /g")
+
+                    if [ $num_occ -eq 1 ]; then
+                        new_line=$(echo "$new_line" | awk -F "$source_function" '{print $2}' | cut -d')' -f2-)
+                    else
+                        new_line=$(echo "$new_line" | awk -F "$source_function" -v i="$i" '!found && NF > i { found = 1; $1=""; print $0 }' | cut -d')' -f$split-)
+                    fi
+
+                    # Check for vulnerable function usage with parameter
+                    rule1="system\(.*(\b$var_part\b).*?\)|execl\(.*(\b$var_part\b).*?\)|execv\(.*(\b$var_part\b).*?\)|popen\(.*(\b$var_part\b).*?\)"
+                    rule2=".*query\(.*(\b$var_part\b).*?\)|.*execute\(.*(\b$var_part\b).*?\)"
+                    rule3="fprintf\(.*(\b$var_part\b).*?\)|fwrite\(.*(\b$var_part\b).*?\)|ofstream.*<<.*(\b$var_part\b)"
+
+                    echo "$new_line" | grep -P -q "($rule1|$rule2|$rule3)"
+                    if [ $? -eq 0 ]; then
+                        echo "$new_line" | grep -P -v -q "std::filesystem::exists|std::optional|escape\( *$var_part *\)"
+                        if [ $? -eq 0 ]; then
+                            if [ $inj -eq 0 ]; then
+                                vuln="$vuln, Injection"
+                                let inj=inj+1
+                            fi
+                        fi
+                    fi
+                    let j=j+1
+                done
+            fi
+            let i=i+1;
+            let check=num_occ+1;
+        done
+
+
     fi
 done < "$input"
