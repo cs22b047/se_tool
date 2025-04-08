@@ -806,6 +806,55 @@ while IFS= read -r line; do
             let check=num_occ+1;
         done
 
+        # RULE 23: Detect insecure JSON parsing/environment variable usage (C++)
+        # Check for nlohmann::json::parse() and getenv() patterns
+        echo "$line" | grep -q -E '\b(nlohmann::json::parse|json::parse|getenv|std::getenv)\b'
+        if [ $? -eq 0 ]; then
+            # Extract parsed variable/expression
+            if echo "$line" | grep -q -E 'json::parse|nlohmann::json::parse'; then
+                var=$(echo "$line" | awk -F '=' '{print $1}' | tr -d ' ' | tr -d ';')
+                json_source=1
+            else
+                var=$(echo "$line" | awk -F 'getenv' '{print $2}' | awk -F '[)" ]' '{print $2}')
+            fi
+
+            if [ -n "$var" ]; then
+                # Normalize line for analysis
+                new_line=$(echo "$line" | sed "s/${var}/_VAR_/g" | sed 's/"/ /g' | sed "s/'/ /g")
+
+                # Check for security anti-patterns
+                echo "$new_line" | grep -q -E '\b(system|popen|sqlite3_exec|fopen|ofstream)\b.*_VAR_'
+                unsafe_usage=$?
+                
+                # Check for validation/sanitization
+                echo "$line" | grep -q -E "(validate|sanitize|escape|check).*\b${var}\b"
+                sanitized=$?
+
+                # JSON-specific checks
+                if [ -n "$json_source" ]; then
+                    echo "$new_line" | grep -q -E '_VAR_\[.*\]'
+                    json_access_risk=$?
+                    echo "$new_line" | grep -q -E '(\.dump|\.get\<|\.at\()'
+                    serialization_risk=$?
+                fi
+
+                # Vulnerability determination
+                if [ $unsafe_usage -eq 0 ] && [ $sanitized -ne 0 ]; then
+                    if [ $bac -eq 0 ]; then
+                        vuln="$vuln, Broken Access Control"
+                        let bac=bac+1
+                    fi
+                    
+                    if [ -n "$json_source" ] && [ $json_access_risk -eq 0 ] && [ $serialization_risk -eq 0 ]; then
+                        if [ $insecure_deser -eq 0 ]; then
+                            vuln="$vuln, Insecure Deserialization"
+                            let insecure_deser=insecure_deser+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
         #RULE C++24: if exists a the following pattern: returnType functionName(var1,var2,...,varn)
         source_function="[a-zA-Z_:][a-zA-Z0-9_:<>]*[ ]+[a-zA-Z_][a-zA-Z0-9_]*[ ]*\\(" # matches "int func(", "std::string foo(", etc.
         num_occ=$(echo "$line" | awk -F "$source_function" '{print NF-1}')
@@ -859,7 +908,734 @@ while IFS= read -r line; do
             let i=i+1;
             let check=num_occ+1;
         done
+        #RULE C++25: if exists the following pattern: (... + user_input)
+        source_function="\+ *(argv\[.*\]|std::cin|std::getline|std::getenv|std::ifstream|std::stringstream|std::istringstream|scanf|gets|fgets)"
+        substitution=$(echo "$line" | grep -o -E "$source_function")
+
+        if [ -n "$substitution" ]; then
+            echo "$line" | grep -E -v -q "if.*\.match\(|std::regex_match|std::filesystem::exists"
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -E -v -q "escape\(.*\)|sanitize\(.*\)"
+                if [ $? -eq 0 ]; then
+                    if [ $sec_mis -eq 0 ]; then
+                        vuln="$vuln, Security Misconfiguration"
+                        let sec_mis=sec_mis+1
+                    fi
+                fi
+            fi
+        fi
 
 
+        # RULE 26: Detect unsafe string concatenation with user input (C++)
+        # Check for CGI/env var concatenation in strings
+        echo "$line" | grep -q -E '\b(std::string::operator\+|\bstrcat|\bsprintf|\bstrn?cpy)\b.*\b(getenv|std::getenv|cgiParam|cin|std::cin)\b'
+        if [ $? -eq 0 ]; then
+            # Extract the user input source
+            input_source=$(echo "$line" | grep -o -E '\b(getenv|std::getenv|cgiParam|cin|std::cin)\b')
+            
+            # Extract the concatenation operation
+            concat_op=$(echo "$line" | grep -o -E '\b(std::string::operator\+|\bstrcat|\bsprintf|\bstrn?cpy)\b')
+            
+            # Check for mitigation patterns
+            echo "$line" | grep -q -E '\b(sanitize|validate|escape|check|verify)\b'
+            mitigated=$?
+            
+            if [ $mitigated -ne 0 ]; then
+                # Security Misconfiguration check
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+                
+                # Additional checks for specific vulnerabilities
+                echo "$line" | grep -q -E '\b(system|popen|exec[lv]?|sqlite3_exec)\b'
+                if [ $? -eq 0 ] && [ $command_inj -eq 0 ]; then
+                    vuln="$vuln, Command Injection"
+                    let command_inj=command_inj+1
+                fi
+                
+                echo "$line" | grep -q -E '\b(fopen|ofstream|ifstream)\b'
+                if [ $? -eq 0 ] && [ $file_inj -eq 0 ]; then
+                    vuln="$vuln, File Injection"
+                    let file_inj=file_inj+1
+                fi
+            fi
+        fi
+
+        # RULE 27 (C++ equivalent): Look for usage like std::string result = "..." + request["..."];
+        source_function="\\+ *request\\[\"(args|form|headers|params|cookies|data|json|files)\"\\]"
+        num_occ=$(echo $line | grep -o -P "$source_function" | wc -l)
+
+        i=1
+        while [ $i -le $num_occ ]; do
+            substitution=$(echo $line | grep -o -P "$source_function")
+            if [ -n "$substitution" ]; then
+                var="request" # placeholder, since it's embedded
+
+                # Clean the line from variable usages
+                new_line=$(echo $line | sed -E "s/request\\[\"[a-zA-Z_]+\"\\]/REPLACED/g")
+
+                # Check for risky patterns
+                echo $new_line | grep -qE "\+\s*REPLACED|\=\s*REPLACED"
+                if [ $? -eq 0 ]; then
+                    echo $new_line | grep -qvE "escape\\(|sanitize\\(|valid\\(|check\\("
+                    if [ $? -eq 0 ]; then
+                        if [ $bac -eq 0 ]; then
+                            vuln="$vuln, Broken Access Control"
+                            let bac=bac+1
+                        fi
+                    fi
+                fi
+            fi
+            let i=i+1
+        done
+
+        # RULE 28 (C++ Equivalent): Detect ( request.get("...") ) or ( req.url_params.get("...") )
+        source_function="\\( *(request|req)(\\.|->)(get|url_params\\.get)\\(\"[a-zA-Z0-9_]+\"\\)"
+        substitution=$(echo "$line" | grep -o -P "$source_function")
+
+        if [ -n "$substitution" ]; then
+            echo "$line" | grep -E -v -q "if.*\\.match\\(|if obj_match\\("
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -E -v -q "escape\\(|sanitize\\(|validate\\("
+                if [ $? -eq 0 ]; then
+                    if [ $sec_mis -eq 0 ]; then
+                        vuln="$vuln, Security Misconfiguration"
+                        let sec_mis=sec_mis+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 29 (C++ Equivalent): Detect potential format string or concatenation vulnerabilities with request input
+        # Pattern: ... % request.get(...) or req.url_params.get(...) (e.g., vulnerable string formatting or injection)
+        source_function="\\% *(request|req)(\\.|->)(get|url_params\\.get)\\(\"[a-zA-Z0-9_]+\"\\)"
+        substitution=$(echo "$line" | grep -o -P "$source_function")
+
+        if [ -n "$substitution" ]; then
+            echo "$line" | grep -E -v -q "if.*\\.match\\(|if obj_match\\("
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -E -v -q "escape\\(|sanitize\\(|validate\\("
+                if [ $? -eq 0 ]; then
+                    if [ $sec_mis -eq 0 ]; then
+                        vuln="$vuln, Security Misconfiguration"
+                        let sec_mis=sec_mis+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 13F (C++ Equivalent): Detect usage of insecure template rendering with entire variable contexts
+        source_function="(context|env|map|locals|globals|session|params)"
+        num_occ=$(echo "$line" | awk -F "$source_function" '{print NF-1}')
+        i=1
+        split=0
+        check=0
+
+        while [ $i -le $num_occ ]; do
+            var=$(echo "$line" | awk -F "$source_function" -v i="$i" '{print $i}' | awk '{print $NF}')
+
+            if [ -z "$var" ]; then
+                pass=1
+            else
+                if [ "$var" == "=" ]; then
+                    var=$(echo "$line" | awk -F "$source_function" -v i="$i" '{print $(NF-1)}')
+                else
+                    last_char=$(echo "${var: -1}")
+                    if [ "$name_os" = "Darwin" ]; then
+                        var=${var:0:$((${#var} - 1))}
+                    elif [ "$name_os" = "Linux" ]; then
+                        var=${var::-1}
+                    fi
+                fi
+
+                # Replace suspicious usage for checking
+                new_line=$(echo "$line" | sed "s/$var(/func(/g" | sed "s/$var =/ =/g" | sed "s/$var=/ =/g")
+
+                let split=i
+                let split=split+1
+                if [ $num_occ -eq 1 ]; then
+                    new_line=$(echo "$new_line" | awk -F "$source_function" '{print $2}' | cut -d\) -f$split-)
+                else
+                    new_line=$(echo "$new_line" | awk -F "$source_function" -v i="$i" '!found && NF > i { found = 1; $1=""; print $0 }' | cut -d\) -f$split-)
+                fi
+
+                # Match suspicious render/engine usage
+                regex="(engine|renderer|template)\.(render|generate|compile)\(.*\b$var\b.*\)"
+                if echo "$new_line" | grep -q -E "$regex"; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, Injection"
+                        let inj=inj+1
+                    fi
+                fi
+            fi
+
+            let i=i+1
+            let check=num_occ+1
+        done
+
+        # Direct check for context-based rendering
+        rule1="(engine|renderer|template)\.(render|generate|compile)\(.*(context|env|globals|params|map).*\)"
+        if echo "$line" | grep -q -E "$rule1"; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 30 (C++ Equivalent): Detect unsafe HTML escaping/encoding — suggest use of safe_escape()
+        echo "$line" | grep -E -q "(html_decode\(|html_unescape\(|HtmlRenderer::render\(|HtmlSafe\(|Html::parse\(|sanitizeHtml\()" 
+        if [ $? -eq 0 ]; then
+            if [ $inj -eq 0 ]; then # Count this category once per snippet
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 30: Detect unsafe HTML/XML output in C++
+        # Check for unescaped output streams and string conversions
+        echo "$line" | grep -q -E '\b(std::cout|printf|fprintf|sprintf|operator<<)\b.*\<[^\>]*\>'
+        if [ $? -eq 0 ]; then
+            # Check if the output contains HTML/XML tags without escaping
+            contains_tags=$(echo "$line" | grep -o -E '\<(a|div|span|script|img)[^>]*\>')
+            
+            if [ -n "$contains_tags" ]; then
+                # Look for escaping functions
+                echo "$line" | grep -q -E '\b(escapeHtml|sanitize|htmlspecialchars|XMLString::transcode)\b'
+                escaped=$?
+                
+                if [ $escaped -ne 0 ]; then
+                    if [ $xss -eq 0 ]; then
+                        vuln="$vuln, Cross-Site Scripting (XSS)"
+                        let xss=xss+1
+                    fi
+                    
+                    # Additional context checks
+                    echo "$line" | grep -q -E '\b(innerHTML|document\.write|ReactDOM\.render)\b'
+                    if [ $? -eq 0 ] && [ $dom_xss -eq 0 ]; then
+                        vuln="$vuln, DOM-based XSS"
+                        let dom_xss=dom_xss+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 31: Detect unsafe direct user input in function parameters (C++)
+        # Check for cin/getline/getenv patterns in function arguments
+        echo "$line" | grep -q -E '\b(cin\s*>>|std::cin\s*>>|getline\s*\(|std::getline\s*\(|getenv\s*\(|std::getenv\s*\()'
+        if [ $? -eq 0 ]; then
+            # Extract the function call pattern
+            func_call=$(echo "$line" | grep -o -E '\b\w+\s*\(.*(cin|getline|getenv).*\)')
+            
+            if [ -n "$func_call" ]; then
+                # Check for mitigation patterns
+                echo "$line" | grep -q -E '\b(sanitize|validate|escape|check|verify)\b'
+                mitigated=$?
+                
+                # Check if input is used in dangerous contexts
+                echo "$line" | grep -q -E '\b(system|popen|exec[lv]?|sqlite3_exec|fopen|ofstream)\b'
+                dangerous_usage=$?
+                
+                if [ $mitigated -ne 0 ]; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, Injection"
+                        let inj=inj+1
+                    fi
+                    
+                    # Additional specific vulnerability checks
+                    if [ $dangerous_usage -eq 0 ]; then
+                        if [[ $func_call == *"system"* ]] && [ $cmd_inj -eq 0 ]; then
+                            vuln="$vuln, Command Injection"
+                            let cmd_inj=cmd_inj+1
+                        fi
+                        
+                        if [[ $func_call == *"sqlite3_exec"* ]] && [ $sqli -eq 0 ]; then
+                            vuln="$vuln, SQL Injection"
+                            let sqli=sqli+1
+                        fi
+                        
+                        if [[ $func_call == *"fopen"* ]] && [ $file_inj -eq 0 ]; then
+                            vuln="$vuln, File Injection"
+                            let file_inj=file_inj+1
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 32 (C++ Equivalent): Detect unsafe CSV writing or output using ofstream or fprintf
+        regex="(#include *<fstream>|std::ofstream|ofstream|fprintf *\(|fopen *\()"
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then
+            if [ $inj -eq 0 ]; then # Count this vulnerability once per snippet
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 32: Detect unsafe CSV/file operations in C++
+        # Check for ofstream/fprintf without proper validation
+        echo "$line" | grep -q -E '\b(std::ofstream|fprintf|fopen|fputs)\b.*\.csv'
+        if [ $? -eq 0 ]; then
+            # Check for user-controlled inputs in file operations
+            user_input_pattern='\b(cin|std::cin|getline|std::getline|getenv|std::getenv|cgiParam)\b'
+            echo "$line" | grep -q -E "$user_input_pattern"
+            
+            if [ $? -eq 0 ]; then
+                # Look for CSV-specific injection patterns
+                echo "$line" | grep -q -E '<<\s*[^"]*\,|fprintf\([^"]*\,'
+                csv_injection=$?
+                
+                # Check for mitigations
+                echo "$line" | grep -q -E '\b(escapeCsv|sanitize|validate)\b'
+                mitigated=$?
+                
+                if [ $csv_injection -eq 0 ] && [ $mitigated -ne 0 ]; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, CSV Injection"
+                        let inj=inj+1
+                    fi
+                    
+                    # Additional context checks
+                    echo "$line" | grep -q -E '\b(system|popen|exec[lv]?)\b'
+                    if [ $? -eq 0 ] && [ $cmd_inj -eq 0 ]; then
+                        vuln="$vuln, Command Injection"
+                        let cmd_inj=cmd_inj+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 33 (C++ Equivalent): Detect unsafe subprocess calls like system(), popen(), exec*
+        regex="(system *\(|popen *\(|exec[lvp]{1,2} *\()"
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then 
+            if [ $inj -eq 0 ]; then # Count this vulnerability once per snippet
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 33: Detect unsafe command execution in C++
+        # Check for system()/popen() without proper validation
+        echo "$line" | grep -q -E '\b(system|popen|_popen|exec[lv]?|_wsystem)\b'
+        if [ $? -eq 0 ]; then
+            # Check for user-controlled command input
+            user_input_pattern='\b(cin|std::cin|getline|std::getline|getenv|std::getenv|cgiParam|argv)\b'
+            echo "$line" | grep -q -E "$user_input_pattern"
+            
+            if [ $? -eq 0 ]; then
+                # Look for command concatenation
+                echo "$line" | grep -q -E '\+.*(cin|getenv|argv)'
+                concat_unsafe=$?
+                
+                # Check for mitigations
+                echo "$line" | grep -q -E '\b(validate|sanitize|escapeShellCmd|check)\b'
+                mitigated=$?
+                
+                if [ $concat_unsafe -eq 0 ] && [ $mitigated -ne 0 ]; then
+                    if [ $cmd_inj -eq 0 ]; then
+                        vuln="$vuln, Command Injection"
+                        let cmd_inj=cmd_inj+1
+                    fi
+                    
+                    # Additional severity checks
+                    echo "$line" | grep -q -E '\b(root|sudo|chmod|rm)\b'
+                    if [ $? -eq 0 ] && [ $priv_esc -eq 0 ]; then
+                        vuln="$vuln, Privilege Escalation Risk"
+                        let priv_esc=priv_esc+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 34 (C++ Equivalent): Detect unsafe deserialization usage
+        regex="(boost::archive::|cereal::|std::ifstream|std::istringstream).*>>"
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q "(archive_flags_safe|verify_signature|secure_deserialize)" # Skip known secure wrappers
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+                if [ $soft_data -eq 0 ]; then
+                    vuln="$vuln, Injection, Software and Data Integrity Failures"
+                    let soft_data=soft_data+1
+                fi
+            fi
+        fi
+
+        # RULE 34: Detect unsafe YAML/JSON parsing in C++
+        # Check for yaml-cpp or similar libraries without safe loading
+        echo "$line" | grep -q -E '\b(YAML::LoadFile|YAML::Load|yaml_parser_initialize|yyjson_read)\b'
+        if [ $? -eq 0 ]; then
+            # Check for safe loading patterns
+            echo "$line" | grep -q -E '\b(YAML::LoadFile|YAML::Load)\b.*\bSafeLoader\b'
+            safe_loading=$?
+            
+            # Check for untrusted input sources
+            echo "$line" | grep -q -E '\b(std::cin|getenv|std::getenv|fopen|ifstream)\b'
+            untrusted_source=$?
+            
+            if [ $safe_loading -ne 0 ] && [ $untrusted_source -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Insecure Deserialization"
+                    let inj=inj+1
+                fi
+                if [ $soft_data -eq 0 ]; then
+                    vuln="$vuln, Software and Data Integrity Failures"
+                    let soft_data=soft_data+1
+                fi
+                
+                # Additional severity checks
+                echo "$line" | grep -q -E '\b(system|exec[lv]?|popen)\b'
+                if [ $? -eq 0 ] && [ $cmd_inj -eq 0 ]; then
+                    vuln="$vuln, Command Injection"
+                    let cmd_inj=cmd_inj+1
+                fi
+            fi
+        fi
+
+        # RULE 35 (C++ Equivalent): Detect unsafe code execution via system-like functions
+        regex="(system|popen|execl|execv|execlp|execvp|execve|WinExec|CreateProcess)\("
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then
+            # Exclude known-safe wrappers (if any)
+            echo "$line" | grep -E -v -q "(safe_exec|sanitize_command)"
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 35: Detect unsafe code execution patterns in C++
+        # Check for system(), popen(), and interpreter embedding
+        echo "$line" | grep -q -E '\b(system\s*\(|popen\s*\(|exec[lv]?p?\s*\(|Lua_LoadString\s*\(|v8::Script::Compile\s*\()'
+        if [ $? -eq 0 ]; then
+            # Check for user-controlled input in execution context
+            user_input_pattern='\b(cin|std::cin|getenv|std::getenv|argv|fgets|scanf)\b'
+            echo "$line" | grep -q -E "$user_input_pattern"
+            
+            if [ $? -eq 0 ]; then
+                # Check for command/string concatenation
+                echo "$line" | grep -q -E '\+.*(std::cin|argv|getenv)'
+                concat_unsafe=$?
+                
+                # Check for mitigations
+                echo "$line" | grep -q -E '\b(validate|sanitize|escapeShellCmd|check)\b'
+                mitigated=$?
+                
+                if [ $concat_unsafe -eq 0 ] && [ $mitigated -ne 0 ]; then
+                    if [ $inj -eq 0 ]; then
+                        vuln="$vuln, Code Injection"
+                        let inj=inj+1
+                    fi
+                    
+                    # Additional severity checks
+                    echo "$line" | grep -q -E '\b(boost::python|python::exec|PyRun_SimpleString)\b'
+                    if [ $? -eq 0 ] && [ $py_eval -eq 0 ]; then
+                        vuln="$vuln, Python Evaluation in C++"
+                        let py_eval=py_eval+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 36 (C++ Equivalent): Detect use of dangerous exec-like functions
+        regex="(execv|execl|execvp|execve|execlp|system|WinExec|CreateProcess)\("
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then
+            # Optional: exclude any known-safe wrappers if needed
+            echo "$line" | grep -E -v -q "(safe_exec|sanitize_command)"
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 36: Detect insecure exec family usage in C++
+        # Check for exec*() functions with potential injection risks
+        echo "$line" | grep -q -E '\bexec[lv]?p?e?\b\s*\(.*\b(cin|argv|getenv|std::getenv|cgiParam)\b'
+        if [ $? -eq 0 ]; then
+            # Check for command concatenation patterns
+            echo "$line" | grep -q -E '\+.*(std::cin|argv|getenv)'
+            concat_unsafe=$?
+            
+            # Check for mitigations
+            echo "$line" | grep -q -E '\b(validate|sanitize|escape|check|secure_exec)\b'
+            mitigated=$?
+            
+            if [ $concat_unsafe -eq 0 ] && [ $mitigated -ne 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Process Injection"
+                    let inj=inj+1
+                fi
+                
+                # Additional severity checks
+                echo "$line" | grep -q -E '\b(bash|sh|python|perl)\b'
+                if [ $? -eq 0 ] && [ $shell_inj -eq 0 ]; then
+                    vuln="$vuln, Shell Injection"
+                    let shell_inj=shell_inj+1
+                fi
+            fi
+        fi
+
+        # RULE 37 (C++ Equivalent): Detect use of system/popen or shell command execution
+        regex="(system|popen|std::system)\(.*(\"|').*(;|&&|\\||\$|\`|\$\().*"
+        echo "$line" | grep -E -q -i "$regex"
+        if [ $? -eq 0 ]; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 37: Detect unsafe shell execution in C++
+        # Check for system()/popen() with shell invocation patterns
+        echo "$line" | grep -q -E '\b(system|popen|_popen|_wsystem)\b\s*\(.*(sh -c|bash -c|cmd /c)'
+        if [ $? -eq 0 ]; then
+            # Check for user-controlled command input
+            user_input_pattern='\b(cin|std::cin|getenv|std::getenv|argv|fgets|scanf)\b'
+            echo "$line" | grep -q -E "$user_input_pattern"
+            
+            if [ $? -eq 0 ]; then
+                # Check for command concatenation
+                echo "$line" | grep -q -E '\+.*(std::cin|argv|getenv)'
+                concat_unsafe=$?
+                
+                # Check for mitigations
+                echo "$line" | grep -q -E '\b(validate|sanitize|escapeShellCmd|check)\b'
+                mitigated=$?
+                
+                if [ $concat_unsafe -eq 0 ] && [ $mitigated -ne 0 ]; then
+                    if [ $shell_inj -eq 0 ]; then
+                        vuln="$vuln, Shell Injection"
+                        let shell_inj=shell_inj+1
+                    fi
+                    
+                    # Additional severity checks
+                    echo "$line" | grep -q -E '\b(&&|\|\||;|`|\$\(|\\)\b'
+                    if [ $? -eq 0 ] && [ $cmd_inj -eq 0 ]; then
+                        vuln="$vuln, Command Injection"
+                        let cmd_inj=cmd_inj+1
+                    fi
+                fi
+            fi
+        fi
+
+        ###############################
+        # RULE 38: Inline Exception Handling Vulnerability
+        # Detection of "std::exception().what()" used directly without saving output in a variable.
+        var=$(echo "$line" | awk -F "std::exception().what(" '{print $1}' | awk '{print $NF}')
+        if [ -z "$var" ]; then
+            pass=1
+        else
+            if [ "$var" == "=" ]; then
+                var=$(echo "$line" | awk -F "std::exception().what(" '{print $(NF-1)}')
+            else
+                last_char=$(echo "${var: -1}")
+                if [ "$last_char" == "=" ]; then
+                    if [ "$name_os" = "Darwin" ]; then  # MAC-OS system
+                        var=${var:0:$((${#var} - 1))}
+                    elif [ "$name_os" = "Linux" ]; then  # LINUX system
+                        var=${var::-1}
+                    fi
+                fi
+            fi
+            # Check if the formatted exception output is immediately used in a return or print call
+            echo "$line" | grep -E -q -i "return std::exception().what\\(\\)|std::(cerr|cout) *<< *$var"
+            if [ $? -eq 0 ]; then
+                if [ $ins_des -eq 0 ]; then  # Count the single category occurrence per snippet
+                    vuln="$vuln, Insecure Design"
+                    let ins_des=ins_des+1
+                fi
+            fi
+        fi
+
+        # RULE 39: Detection of run(debugMode=true) Function
+        # For example, a C++ web framework might have a run() method with a debug mode enabled.
+        echo "$line" | grep -E -q -i "run\\( *debugMode *= *true *\\)"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]run\\("
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then  # Toggle the category variable for the specific snippet
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 40: Detection of FTP() Function
+        # Looks for use of an FTP function/class, e.g., "ftplib::FTP(" or bare "FTP(".
+        echo "$line" | grep -E -q -i "ftplib::FTP\\(|FTP\\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]FTP\\("
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -v -i -q " FTP()"
+                if [ $? -eq 0 ]; then
+                    if [ $crypto -eq 0 ]; then  # Toggle the category variable for the specific snippet
+                        vuln="$vuln, Cryptographic Failures"
+                        let crypto=crypto+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 38: Detect insecure error handling patterns
+        echo "$line" | grep -q -E '\b(std::cerr|std::cout|logError|LOG_ERR)\b.*\b(what\(|exception\.what\(|e\.what\(|catch\(.*exception)'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E '\b(sanitize|redact|secure_log)\b'
+            if [ $? -eq 0 ]; then
+                if [ $ins_des -eq 0 ]; then
+                    vuln="$vuln, Insecure Error Handling"
+                    let ins_des=ins_des+1
+                fi
+            fi
+        fi
+
+        # RULE 39: Detect debug mode configurations
+        echo "$line" | grep -q -E '\b(_DEBUG|NDEBUG|DEBUG_MODE)\b.*=.*(true|1)|DEBUG.*defined'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E '//.*DEBUG|/\*.*DEBUG.*\*/'
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Debug Mode Enabled"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 40: Detect insecure FTP usage
+        echo "$line" | grep -q -E '\b(curl_easy_setopt|ftp_connect)\b.*ftp://'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E 'ftps://|sftp://'
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Insecure FTP Protocol"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+        ###############################
+
+
+        ###################################
+        # RULE 41: Detection of SMTP() Function (C++ Variant)
+        # For example, detecting calls to an SMTP client library, such as SMTPClient::send(...) or bare SMTP(...)
+        echo "$line" | grep -E -q -i "SMTPClient::[A-Za-z0-9_]+\(|SMTP\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]SMTPClient::"
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -v -i -q " SMTPClient::"
+                if [ $? -eq 0 ]; then
+                    if [ $crypto -eq 0 ]; then   # Count only one occurrence per snippet
+                        vuln="$vuln, Cryptographic Failures"
+                        let crypto=crypto+1
+                    fi
+                fi
+            fi
+        fi
+
+        # RULE 42: Detection of SHA256() Function (C++ Variant)
+        # For example, insecure direct use of SHA256(...) without proper precautions
+        echo "$line" | grep -E -q -i "SHA256\(|sha256\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]SHA256\("
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -v -i -q " SHA256\("
+                if [ $? -eq 0 ]; then
+                    if [ $crypto -eq 0 ]; then
+                        vuln="$vuln, Cryptographic Failures"
+                        let crypto=crypto+1
+                    fi
+                fi
+            fi
+        fi
+        # RULE 43: Detection of DSA_generate_parameters_ex() with a Bit Length <= 1024
+        # An insecure key length for DSA key generation (should be >1024 bits)
+        echo "$line" | grep -E -i -q "DSA_generate_parameters_ex\("
+        if [ $? -eq 0 ]; then
+            value=$(echo "$line" | awk -F "DSA_generate_parameters_ex\\(" '{print $2}' | awk -F ',' '{print $1}')
+            # Assuming 'value' is numeric; flag if less than or equal to 1024
+            if [ "$value" -le 1024 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 44: Detection of DES_set_key() Function (C++ Variant)
+        # The use of DES is considered insecure.
+        echo "$line" | grep -q -i "DES_set_key("
+        if [ $? -eq 0 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 45: Detection of SSL_wrap_socket() Function (C++ Variant)
+        # Detect a wrapper function for SSL sockets that might be insecure.
+        echo "$line" | grep -q -i "SSL_wrap_socket("
+        if [ $? -eq 0 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 41: Detect insecure SMTP usage
+        echo "$line" | grep -q -E '\b(curl_easy_setopt|smtp_connect)\b.*smtp://'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E 'smtps://'
+            if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Insecure SMTP Protocol"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 42: Detect insecure SHA-256 usage
+        echo "$line" | grep -q -E '\b(SHA256_Init|EVP_sha256)\b.*\b(password|secret)\b'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E '\b(HMAC|PKCS5_PBKDF2_HMAC|EVP_BytesToKey)\b'
+            if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Insecure Hashing"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 43: Detect weak DSA key generation
+        echo "$line" | grep -q -E '\bDSA_generate_parameters\b.*\b(512|768|1024)\b'
+        if [ $? -eq 0 ]; then
+            key_size=$(echo "$line" | awk -F 'DSA_generate_parameters' '{print $2}' | tr -d '()' | awk -F ',' '{print $2}')
+            if [ $key_size -le 1024 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Weak DSA Key"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 44: Detect DES usage
+        echo "$line" | grep -q -E '\b(DES_encrypt|DES_cblock|EVP_des_)\b'
+        if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+            vuln="$vuln, Insecure DES Algorithm"
+            let crypto=crypto+1
+        fi
+
+        # RULE 45: Detect weak SSL/TLS configurations
+        echo "$line" | grep -q -E '\b(SSLv23_method|SSL_CTX_new)\b.*SSLv3'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E 'TLS_method|SSL_CTX_set_min_proto_version'
+            if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Weak TLS Configuration"
+                let crypto=crypto+1
+            fi
+        fi
+        ###################################
     fi
 done < "$input"

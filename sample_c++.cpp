@@ -15,3 +15,5 @@ int main() {
 
     app.port(8080).multithreaded().run();
 }
+Give shell script to recognize the c++ equivalent vulnerability in python like this 
+"
