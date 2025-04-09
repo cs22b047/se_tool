@@ -1637,5 +1637,581 @@ while IFS= read -r line; do
             fi
         fi
         ###################################
+
+        ###################################
+        # RULE 46: detection of MD5 usage
+        # Detects functions like MD5_Init, EVP_md5, or direct calls to MD5()
+        echo "$line" | grep -E -q -i "MD5_Init|EVP_md5|MD5\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]MD5("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 47: detection of SHA1 usage
+        # Detects SHA1_Init, EVP_sha1, or SHA1()
+        echo "$line" | grep -E -q -i "SHA1_Init|EVP_sha1|SHA1\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]SHA1("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 48: detection of AES usage via OpenSSL or custom AES class
+        # Detects `AES_set_encrypt_key`, `AES_encrypt`, or general `AES(...)`
+        echo "$line" | grep -E -q -i "AES_set_encrypt_key|AES_encrypt|AES\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]AES("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 49: detection of CBC mode usage (e.g., EVP_CIPHER_CTX with CBC)
+        # Examples: EVP_aes_128_cbc(), EVP_aes_256_cbc(), or MODE_CBC usage
+        echo "$line" | grep -E -q -i "EVP_aes_.*_cbc|MODE_CBC|CBC\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "def CBC("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 50: detection of insecure PRNG - rand()/srand()
+        # These are not suitable for crypto purposes
+        echo "$line" | grep -E -q -i "rand\(|srand\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]rand("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+        ###################################
+
+
+        # RULE 46: Detect MD5 usage
+        echo "$line" | grep -q -E '\b(MD5_Init|EVP_md5)\b'
+        if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+            vuln="$vuln, Insecure MD5 Hashing"
+            let crypto=crypto+1
+        fi
+
+        # RULE 47: Detect SHA1 usage
+        echo "$line" | grep -q -E '\b(SHA1_Init|EVP_sha1)\b'
+        if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+            vuln="$vuln, Insecure SHA1 Hashing"
+            let crypto=crypto+1
+        fi
+
+        # RULE 48: Detect AES in insecure contexts
+        echo "$line" | grep -q -E '\bEVP_aes_[0-9]+_ecb\b'
+        if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+            vuln="$vuln, Insecure AES Mode (ECB)"
+            let crypto=crypto+1
+        fi
+
+        # RULE 49: Detect CBC mode without authentication
+        echo "$line" | grep -q -E '\bEVP_aes_[0-9]+_cbc\b'
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E '\b(EVP_CIPHER_CTX_ctrl|EVP_CTRL_AEAD)\b'
+            if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Unauthenticated CBC Mode"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 50: Detect insecure random numbers
+        echo "$line" | grep -q -E '\brand\s*\('
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q -E '\b(arc4random|RAND_bytes|std::random_device)\b'
+            if [ $? -eq 0 ] && [ $crypto -eq 0 ]; then
+                vuln="$vuln, Insecure Random Number Generation"
+                let crypto=crypto+1
+            fi
+        fi
+        ########################################
+
+
+        ###################################
+        # RULE 51: detection of std::rand() based selection (e.g., insecure random.choice equivalent)
+        # This simulates Python's random.choice using rand() and index-based access
+        echo "$line" | grep -E -q -i "rand\(\)|srand\(\)"
+        if [ $? -eq 0 ]; then
+            # Exclude secure alternatives like <random> with std::mt19937 or std::random_device
+            echo "$line" | grep -v -q "random_device\|mt19937"
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 52: detection of bit-based RNG using rand() for bit manipulation (e.g., getrandbits)
+        echo "$line" | grep -E -q -i "rand\(\)\s*%|\<\<\s*rand\(\)"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "random_device\|mt19937"
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 53: detection of custom or unsafe JWT parsing
+        # Looks for functions like parse_jwt, decode_jwt, or similar without verification
+        echo "$line" | grep -E -q -i "parse_jwt|decode_jwt|jwt_decode"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "verify_jwt\|jwt_verify"
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 54: detection of tmpnam(), tempnam() or mktemp() - unsafe temp file generation
+        echo "$line" | grep -E -q -i "tmpnam\(|tempnam\(|mktemp\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "def mktemp\|define mktemp"
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        # RULE 55: detection of deprecated/unsafe time functions (e.g., time.clock)
+        # Detect use of `clock()` that may be platform-specific or unsafe
+        echo "$line" | grep -E -q -i "clock\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "def clock\|define clock"
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+        ###################################
+
+        ###################################
+        # RULE 56: detection of boost::serialization or custom deserialization (pickle equivalent)
+        # These may introduce unsafe object loading
+        echo "$line" | grep -E -q -i "boost::archive::text_iarchive|boost::archive::binary_iarchive|load_from_file|deserialize|deserializeFrom"
+        if [ $? -eq 0 ]; then
+            if [ $soft_data -eq 0 ]; then
+                vuln="$vuln, Software and Data Integrity Failures"
+                let soft_data=soft_data+1
+            fi
+        fi
+
+        # RULE 57: detection of insecure XML parsing (like xml.sax.make_parser without safe features)
+        echo "$line" | grep -E -q -i "XMLParser|xmlParse|xmlCreatePushParserCtxt|SAXParser"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q -i "noent|NONET|XML_PARSE_NOENT|XML_PARSE_NONET"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 58: detection of assert statements in production (security misconfig)
+        echo "$line" | grep -E -q -i "\bassert\b"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "catch\s*\(.*AssertionError.*\)"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 59: detection of use of OpenSSL EVP_get_digestbyname (equiv to hashlib.new)
+        echo "$line" | grep -E -q -i "EVP_get_digestbyname"
+        if [ $? -eq 0 ]; then
+            proto=$(echo "$line" | awk -F 'EVP_get_digestbyname\\(' '{print $2}' | awk -F '\\)' '{print $1}')
+            echo "$proto" | grep -E -q -i "sha512|sha3_224|sha3_256|sha3_384|sha3_512"
+            if [ $? -eq 1 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        # RULE 60: detection of PBKDF2 usage with weak hash (equivalent to weak pbkdf2_hmac use)
+        echo "$line" | grep -E -q -i "PKCS5_PBKDF2_HMAC"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q -i "SHA512|SHA3_224|SHA3_256|SHA3_384|SHA3_512"
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+        ###################################
+
+
+        ###################################
+        # RULE 61: detection of parseUDPpacket() or similar insecure parsing
+        echo "$line" | grep -E -q -i "parseUDPpacket\s*\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]parseUDPpacket\s*\("
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        # RULE 62: detection of system call with .bin file
+        echo "$line" | grep -E -q -i "system\s*\(.*\.bin"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]system\s*\(.*\.bin"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 63: detection of exec/system-style injection (e.g., using system("..."))
+        echo "$line" | grep -E -q -i "exec\s*\(|system\s*\("
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -q -i "import|std::system|execv|execl"
+            if [ $? -eq 0 ]; then
+                if [ $inj -eq 0 ]; then
+                    vuln="$vuln, Injection"
+                    let inj=inj+1
+                fi
+            fi
+        fi
+
+        # RULE 64: detection of XML parsing via etree (equivalent: TinyXML, pugixml, etc.)
+        echo "$line" | grep -E -q -i "tinyxml2::|pugi::xml_document|pugixml|xmlDoc"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -v -q -i "load_options::parse_default|XML_PARSE_NOENT|NONET"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 65: detection of privilege escalation pattern (e.g., setuid, seteuid)
+        echo "$line" | grep -E -q -i "setuid\s*\(|seteuid\s*\(|seteuid\(0\).*setuid\(non"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -q -i "setuid\(0\).*setuid\([0-9]+\)"
+            if [ $? -eq 0 ]; then
+                if [ $ins_des -eq 0 ]; then
+                    vuln="$vuln, Insecure Design"
+                    let ins_des=ins_des+1
+                fi
+            fi
+        fi
+
+
+        ###################################
+
+
+        ###################################
+        # RULE 66: detection of insecure HTTPS (e.g., curl with -k or verify false)
+        echo "$line" | grep -E -q -i "curl.* -k|CURLOPT_SSL_VERIFYPEER\s*=\s*0"
+        if [ $? -eq 0 ]; then
+            if [ $id_auth -eq 0 ]; then
+                vuln="$vuln, Identification and Authentication Failures"
+                let id_auth=id_auth+1
+            fi
+        fi
+
+        # RULE 67: detection of chmod with insecure permissions
+        echo "$line" | grep -E -q -i "chmod\s*\(.*,(.*777|.*755|.*0o777|.*0o755)"
+        if [ $? -eq 0 ]; then
+            if [ $sec_mis -eq 0 ]; then
+                vuln="$vuln, Security Misconfiguration"
+                let sec_mis=sec_mis+1
+            fi
+        fi
+
+        # RULE 68: detection of setting cookies manually (esp. password/session ID in plain text)
+        echo "$line" | grep -E -q -i "Set-Cookie:.*(password|session|token|auth)"
+        if [ $? -eq 0 ]; then
+            if [ $sec_mis -eq 0 ]; then
+                vuln="$vuln, Security Misconfiguration"
+                let sec_mis=sec_mis+1
+            fi
+        fi
+
+        # RULE 69: detection of disabling cert verification in SSL context
+        echo "$line" | grep -E -q -i "verify_mode\s*=\s*SSL_VERIFY_NONE"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -E -q -i "check_hostname\s*=\s*false"
+            if [ $? -eq 0 ]; then
+                if [ $id_auth -eq 0 ]; then
+                    vuln="$vuln, Identification and Authentication Failures"
+                    let id_auth=id_auth+1
+                fi
+            fi
+        fi
+
+        # RULE 70: detection of use of unverified SSL context (OpenSSL variants)
+        echo "$line" | grep -E -q -i "SSL_CTX_set_verify\s*\(.*SSL_VERIFY_NONE"
+        if [ $? -eq 0 ]; then
+            if [ $id_auth -eq 0 ]; then
+                vuln="$vuln, Identification and Authentication Failures"
+                let id_auth=id_auth+1
+            fi
+        fi
+        ###################################
+
+
+        ###################################
+        # RULE 71: detection of custom insecure SSL context creation
+        echo "$line" | grep -E -q -i "SSL_CTX_new\(|SSL_new\("
+        if [ $? -eq 0 ]; then
+            if [ $id_auth -eq 0 ]; then
+                vuln="$vuln, Identification and Authentication Failures"
+                let id_auth=id_auth+1
+            fi
+        fi
+
+        # RULE 72: detection of 'check_hostname = false' in SSL config
+        echo "$line" | grep -E -q -i "check_hostname\s*=\s*false"
+        if [ $? -eq 0 ]; then
+            if [ $id_auth -eq 0 ]; then
+                vuln="$vuln, Identification and Authentication Failures"
+                let id_auth=id_auth+1
+            fi
+        fi
+
+        # RULE 73: usage of insecure or specific SSL methods (e.g., TLSv1_2_METHOD)
+        echo "$line" | grep -E -q -i "TLSv1_2_METHOD|TLSv1_method|SSLv3_method|SSLv2_method"
+        if [ $? -eq 0 ]; then
+            if [ $id_auth -eq 0 ]; then
+                vuln="$vuln, Identification and Authentication Failures"
+                let id_auth=id_auth+1
+            fi
+        fi
+
+        # RULE 74: usage of insufficient entropy (e.g., small urandom buffers)
+        echo "$line" | grep -E -q -i "rand_bytes\s*\(\s*(0|1|2|4|8|16|32)\s*\)|RAND_bytes\s*\(\s*[a-zA-Z0-9_]*,\s*(0|1|2|4|8|16|32)\s*\)"
+        if [ $? -eq 0 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+
+        # RULE 75: RSA key size less than 2048 bits
+        echo "$line" | grep -E -q -i "RSA_generate_key\([^,]+,\s*(512|1024|1536|204[0-7])\s*,"
+        if [ $? -eq 0 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+
+
+        ###################################
+
+        ###################################
+        # RULE 76: Insecure JWT decode with verify false (simulated in C++)
+        echo "$line" | grep -E -q -i "jwt::decode\(.*verify\s*=\s*false|jwt::decode\(.*verify=false"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]decode("
+            if [ $? -eq 0 ]; then
+                echo "$line" | grep -v -q "([a-zA-Z0-9]verify\s*=\s*false"
+                if [ $? -eq 0 ]; then
+                    if [ $crypto -eq 0 ]; then
+                        vuln="$vuln, Cryptographic Failures"
+                        let crypto=crypto+1
+                    fi
+                fi
+            fi
+        fi
+
+        ###################################
+        # RULE 77: decode JWT without verifying key
+        echo "$line" | grep -E -q -i "jwt::decode\([a-zA-Z0-9_]*\)"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]decode("
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+
+        ###################################
+        # RULE 78: decode JWT with disabled signature verification via options
+        echo "$line" | grep -q -i "jwt::decode\(.*,.*options\s*=\s*{[^}]*verify_signature[^}]*false"
+        if [ $? -eq 0 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+
+        ###################################
+        # RULE 79: socket bound to 0.0.0.0 (insecure network exposure)
+        echo "$line" | grep -P -q -i "\.bind\s*\(\s*.*\"0\.0\.0\.0\".*\)"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]bind\s*\(\s*\"0\.0\.0\.0\""
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        ###################################
+        # RULE 80: XMLParser with entity resolution enabled or without options
+        echo "$line" | grep -E -q -i "XMLParser\s*\(\s*resolve_entities\s*=\s*true\s*\)|XMLParser\s*\(\s*\)"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "[a-zA-Z0-9]XMLParser("
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+
+        ##########    START SECURITY MISCONFIGURATION     ##########
+
+        # RULE 80: Use of XML parsers vulnerable to XXE (e.g., TinyXML, pugixml)
+        echo "$line" | grep -E -q -i "XMLDocument|load_file|parse"
+        if [ $? -eq 0 ]; then
+            echo "$line" | grep -v -q "XXE_DISABLED\|NOENT"
+            if [ $? -eq 0 ]; then
+                if [ $sec_mis -eq 0 ]; then
+                    vuln="$vuln, Security Misconfiguration"
+                    let sec_mis=sec_mis+1
+                fi
+            fi
+        fi
+
+        # RULE 81: Use of unsafe XSLT-style file loading
+        echo "$line" | grep -E -q -i "read_network\s*=\s*true|write_network\s*=\s*true"
+        if [ $? -eq 0 ]; then
+            if [ $sec_mis -eq 0 ]; then
+                vuln="$vuln, Security Misconfiguration"
+                let sec_mis=sec_mis+1
+            fi
+        fi
+
+        # RULE 82: chmod file.bin in C++ (e.g., using chmod() on sensitive binaries)
+        echo "$line" | grep -E -q -i "chmod\s*\(\s*\"?[^\"]*\.bin\"?"
+        if [ $? -eq 0 ]; then
+            if [ $sec_mis -eq 0 ]; then
+                vuln="$vuln, Security Misconfiguration"
+                let sec_mis=sec_mis+1
+            fi
+        fi
+
+        ##########    START SECURITY LOGGING AND MONITORING FAILURES    ##########
+
+        # RULE 83: Loop without increment - risky while loops
+        echo "$line" | grep -q -i "while\s*[^;]*<"
+        if [ $? -eq 0 ]; then
+            var=$(echo "$line" | awk -F "<" '{print $1}' | awk '{print $NF}')
+            echo "$line" | grep -E -v -q "$var\s*\+\+|$var\s*+=\s*1|$var\s*=\s*$var\s*\+"
+            if [ $? -eq 0 ]; then
+                if [ $sec_log -eq 0 ]; then
+                    vuln="$vuln, Security Logging and Monitoring Failures"
+                    let sec_log=sec_log+1
+                fi
+            fi
+        fi
+
+        # RULE 84: Lock acquire without checking if locked (e.g., std::mutex usage)
+        echo "$line" | grep -E -q -i "std::mutex\s+[a-zA-Z_0-9]+;.*\.lock\(\)"
+        if [ $? -eq 0 ]; then
+            var=$(echo "$line" | awk -F "std::mutex" '{print $2}' | awk '{print $1}')
+            echo "$line" | grep -v -q "if\s*$var\.try_lock\(\)"
+            if [ $? -eq 0 ]; then
+                if [ $sec_log -eq 0 ]; then
+                    vuln="$vuln, Security Logging and Monitoring Failures"
+                    let sec_log=sec_log+1
+                fi
+            fi
+        fi
+
+        ##########    START BROKEN ACCESS CONTROL     ##########
+
+        # RULE 85: File read without checking if file exists
+        echo "$line" | grep -q -i "std::ifstream\s+[a-zA-Z0-9_]*\(.*\)\s*;.*\.read("
+        if [ $? -eq 0 ]; then
+            var=$(echo "$line" | awk -F "std::ifstream" '{print $2}' | awk '{print $1}')
+            echo "$line" | grep -v -q "std::filesystem::exists\($var\)|access\($var"
+            if [ $? -eq 0 ]; then
+                if [ $bac -eq 0 ]; then
+                    vuln="$vuln, Broken Access Control"
+                    let bac=bac+1
+                fi
+            fi
+        fi
+
+        ##################################
+        
+        ##################################################################################3
+        
+        # RULE 8F-CLUSTER-6 C++: Detect unsanitized user input in SQL queries (e.g., strcat, string +, sprintf with query)
+        rule_cpp1='(SELECT|INSERT|UPDATE|DELETE)[^;]*["\"][^"\"]*(std::cin|gets|scanf|argv\[).*["\"]'
+        rule_cpp2='(SELECT|INSERT|UPDATE|DELETE)[^;]*\+[^;]*(std::cin|gets|scanf|argv\[)'
+        rule_cpp3='sprintf\s*\(.*(SELECT|INSERT|UPDATE|DELETE).*%s.*(std::cin|gets|scanf|argv\[)'
+        rule_cpp4='(std::string|char\s+\*?)\s+\w+\s*=\s*.*(SELECT|INSERT|UPDATE|DELETE).*(std::cin|gets|scanf|argv\[)'
+
+        regex_cpp="($rule_cpp1|$rule_cpp2|$rule_cpp3|$rule_cpp4)"
+
+        if echo "$line" | grep -E -iq "$regex_cpp"; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+        # RULE 18F CLUSTER-12 C++: Detect improper template escaping
+        # Equivalent: rendering HTML without proper escaping
+        if echo "$line" | grep -E -iq "render\(.+,(.+escape\s*=\s*false|escape\s*=\s*0)" ; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+
+
+
     fi
 done < "$input"
