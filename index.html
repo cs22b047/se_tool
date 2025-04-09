@@ -189,8 +189,8 @@
             margin-top: 20px;
             font-family: "Courier New", monospace;
         }
-        
-        
+
+
         /* checkbox styling */
         #language-checkbox {
             width: 60%;
@@ -203,15 +203,17 @@
             flex-direction: row;
             padding: 0;
         }
+
         #language-checkbox input {
             appearance: none;
             margin: -1px 8px 0 0;
             width: 20px;
             height: 20px;
             background-color: oklch(0.707 0.022 261.325);
-            border-radius: 4px; 
+            border-radius: 4px;
             cursor: pointer;
         }
+
         #language-checkbox input:checked {
             background-color: oklch(0.8 0.2 131.684);
             position: relative;
@@ -254,10 +256,12 @@
             </label>
         </form>
         <fieldset id="language-checkbox">
-                <input type="checkbox" id="python-checkbox" />
-                <label><b>Python</b></label>
-                <input type="checkbox" id="cpp-checkbox" style="margin-left: 20px;"/>
-                <label><b>C++</b></label>
+            <input type="checkbox" id="python-checkbox" />
+            <label><b>Python</b></label>
+            <input type="checkbox" id="cpp-checkbox" style="margin-left: 20px;" />
+            <label><b>C++</b></label>
+            <input type="checkbox" id="java-checkbox" style="margin-left: 20px;" />
+            <label><b>Java</b></label>
         </fieldset>
         <button onclick="uploadFile()">Analyze Uploaded code</button>
         <button onclick="analyzePastedCode()">Analyze Pasted Code</button>
@@ -265,42 +269,45 @@
         <h3>Vulnerability Report</h3>
         <pre id="report">--Analysis will display here--</pre>
     </div>
-
     <script>
+        const checkboxes = ["python-checkbox", "cpp-checkbox", "java-checkbox"];
+        checkboxes.forEach(id => {
+            document.getElementById(id).addEventListener("change", function () {
+                if (this.checked) {
+                    checkboxes.forEach(otherId => {
+                        if (otherId !== id) {
+                            document.getElementById(otherId).checked = false;
+                        }
+                    });
+                }
+            });
+        });
         document.addEventListener("DOMContentLoaded", function () {
             const fileInput = document.getElementById("fileInput");
             const reportDiv = document.getElementById("report");
 
-            fileInput.addEventListener("change", function () {
-                const files = fileInput.files;
-                const label = fileInput.closest("label.file");
+            function getSelectedLanguage() {
+                if (document.getElementById("python-checkbox").checked) return "python";
+                if (document.getElementById("cpp-checkbox").checked) return "cpp";
+                if (document.getElementById("java-checkbox").checked) return "java";
+                return null;
+            }
 
-                if (files.length === 0) {
-                    label.innerHTML = "Drop a file or click to select one";
-                    return;
-                }
+            window.uploadFile = function () {
+                const language = getSelectedLanguage();
+                if (!language) return alert("Please select a language");
 
-                if (files.length > 1) {
-                    label.innerHTML = "Sorry, multiple files are not allowed";
-                    return;
-                }
-
-                const file = files[0];
-                label.innerHTML = `${file.name} <br> 
-            <span class="sml">Type: ${file.type || "Unknown"}, ${Math.round(file.size / 1024)} KB</span>`;
-            });
-
-            function uploadFile() {
                 if (fileInput.files.length === 0) {
-                    alert("Please select a file");
-                    return;
+                    return alert("Please select a file");
                 }
 
-                reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute...";
+                reportDiv.textContent = "Analyzing uploaded code...";
+
                 const formData = new FormData();
                 formData.append("file", fileInput.files[0]);
+                formData.append("language", language);
 
-                fetch("http://10.30.34.198:5000/upload", {
+                fetch("http://localhost:5000/upload", {
                     method: "POST",
                     body: formData
                 })
@@ -314,19 +321,19 @@
                     });
             }
 
-            function analyzePastedCode() {
+            window.analyzePastedCode = function () {
+                const language = getSelectedLanguage();
                 const codeInput = document.getElementById("codeInput").value.trim();
-                if (!codeInput) {
-                    alert("Please paste some code.");
-                    return;
-                }
 
-                reportDiv.textContent = "Your code is being analyzed. This might take up to 1 minute...";
+                if (!language) return alert("Please select a language");
+                if (!codeInput) return alert("Please paste some code.");
 
-                fetch("http://10.30.34.198:5000/analyze", {
+                reportDiv.textContent = "Analyzing pasted code...";
+
+                fetch("http://localhost:5000/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: codeInput })
+                    body: JSON.stringify({ code: codeInput, language: language })
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -342,7 +349,6 @@
             document.querySelector("button[onclick='analyzePastedCode()']").addEventListener("click", analyzePastedCode);
         });
     </script>
-
 </body>
 
 </html>
