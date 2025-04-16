@@ -38,7 +38,7 @@ else
     new_name=$1
 fi
 
-filename_res="[$timestamp]"_"$new_name"
+filename_res="$new_name"
 type=$(echo $filename_res | awk -F '.' '{print $2}')
 
 
@@ -53,7 +53,7 @@ input_file="INPUT_$filename_res"
 tmp_file="MOD_INPUT_$filename_res"
 
 #define the paths of the generated files
-det_path=$RES_DIR/detection/$det_file
+det_path=$RES_DIR/$det_file
 input_path=$GEN_DIR/$input_file
 tmp_path=$GEN_DIR/$tmp_file
 

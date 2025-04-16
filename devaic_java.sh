@@ -4,7 +4,7 @@
 
 SRC_DIR=$PWD
 INP_DIR=$SRC_DIR"/input"
-RES_DIR=$SRC_DIR"/results_java"
+RES_DIR=$SRC_DIR"/results"
 GEN_DIR=$SRC_DIR"/generated_file_java"
 TOOL=$SRC_DIR/java_tool.sh
 
@@ -20,7 +20,7 @@ else
     new_name=$1
 fi
 
-filename_res="[$timestamp]_$new_name"
+filename_res="$new_name"
 type=$(echo $filename_res | awk -F '.' '{print $2}')
 
 echo "$1" | grep -q ".txt"
@@ -29,8 +29,8 @@ if [ $? -eq 1 ]; then
 fi
 
 # Define the names of the generated files
-input_file="JAVA_INPUT_$filename_res"
-det_file="JAVA_DET_$filename_res"
+input_file="INPUT_$filename_res"
+det_file="DET_$filename_res"
 
 # Define paths
 input_path=$GEN_DIR/$input_file

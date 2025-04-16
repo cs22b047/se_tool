@@ -262,7 +262,7 @@
             </label>
         </form>
 
-        
+
         <fieldset id="language-checkbox">
             <input type="checkbox" id="python-checkbox" />
             <label><b>Python</b></label>
@@ -276,10 +276,29 @@
         <hr>
         <h3>Vulnerability Report</h3>
         <pre id="report">--Analysis will display here--</pre>
-        <button id="download_res">Dowload Result</button>
+        <button id="download_res" onclick="downloadRes()">Download Result</button>
+        <div style="display: none;" id="download_path"></div>
     </div>
     <script>
         const checkboxes = ["python-checkbox", "cpp-checkbox", "java-checkbox"];
+        const downloadRes = () => {
+            const downloadPath = document.getElementById("download_path").textContent;
+
+            if (!downloadPath) {
+                alert("No downloadable file found. Please analyze the code first.");
+                return;
+            }
+
+            const fullUrl = `http://localhost:5000/${downloadPath}`;
+
+            const a = document.createElement("a");
+            a.href = fullUrl;
+            a.download = downloadPath.split("/").pop(); // Extract filename
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+
         checkboxes.forEach(id => {
             document.getElementById(id).addEventListener("change", function () {
                 if (this.checked) {
@@ -348,6 +367,7 @@
                     .then(response => response.json())
                     .then(data => {
                         reportDiv.textContent = data.report || "No report generated.";
+                        document.getElementById("download_path").textContent = data.downloadPath;
                     })
                     .catch(error => {
                         console.error("Error:", error);

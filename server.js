@@ -24,6 +24,8 @@ const upload = multer({ storage });
 app.use(cors());
 app.use(bodyParser.json());
 
+app.use('/results', express.static(path.join(__dirname, 'results')));
+
 // Function to get shell script path based on language
 function getScriptPath(language) {
     switch (language.toLowerCase()) {
@@ -79,8 +81,8 @@ app.post("/analyze", (req, res) => {
     if (!scriptPath) {
         return res.status(400).json({ error: "Unsupported language" });
     }
-
-    const tempFilePath = `input/pasted_${Date.now()}.txt`;
+    const tempFileName = `pasted_${Date.now()}.txt`;
+    const tempFilePath = `input/${tempFileName}`;
     fs.writeFileSync(tempFilePath, code);
 
     exec(`${scriptPath} ${tempFilePath}`, (error, stdout, stderr) => {
@@ -91,7 +93,7 @@ app.post("/analyze", (req, res) => {
             return res.status(500).json({ error: "Script execution error", details: stderr });
         }
 
-        res.json({ report: stdout.trim(),downloadPath: `results/DET_pasted_${Date.now()}.txt` });
+        res.json({ report: stdout.trim(),downloadPath: `results/DET_${tempFileName}` });
     });
 });
 

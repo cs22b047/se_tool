@@ -1,1 +1,4 @@
 node_modules/
+results/
+results_java/
+generated_file*/
