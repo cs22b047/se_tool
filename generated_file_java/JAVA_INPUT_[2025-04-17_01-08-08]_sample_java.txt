@@ -1,0 +1,79 @@
+import java.sql.*;
+import java.security.MessageDigest;
+import java.util.Random;
+import javax.servlet.http.*;
+import java.net.URL;
+import java.io.ObjectInputStream;
+import org.apache.log4j.Logger;
+
+public class VulnerableApp extends HttpServlet {
+
+    // Hardcoded credentials (A02)
+    String password = "admin123";
+
+    // Hardcoded secret (A04)
+    String apiKey = "1234-5678-SECRET";
+
+    public void doPost(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            // SQL Injection (A01)
+            String user = request.getParameter("user");
+            Statement stmt = DriverManager.getConnection("jdbc:mysql://localhost:3306/db", "root", "pass").createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM users WHERE name='" + user + "'");
+
+            // Command Injection (A01)
+            String cmd = request.getParameter("cmd");
+            Runtime.getRuntime().exec("sh -c " + cmd);
+
+            // Reflected XSS (A01)
+            response.getWriter().print("<h1>Welcome " + request.getParameter("name") + "</h1>");
+
+            // Insecure Random (A04)
+            int token = new Random().nextInt();
+
+            // Weak Hashing (A03)
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            md.update("sensitiveData".getBytes());
+
+            // Insecure Deserialization (A08)
+            ObjectInputStream ois = new ObjectInputStream(request.getInputStream());
+            Object obj = ois.readObject();
+
+            // Missing Logging (A09)
+            try {
+                Integer.parseInt("abc");
+            } catch (NumberFormatException e) {
+                // no logging here
+            }
+
+            // SSRF (A10)
+            URL url = new URL("http://" + request.getParameter("target"));
+            url.openStream();
+
+            // Open Redirect (A01)
+            response.sendRedirect(request.getParameter("next"));
+
+            // Weak password policy (A07)
+            String pwd = request.getParameter("password");
+            if (pwd.length() < 6) {
+                response.getWriter().print("Weak password!");
+            }
+
+            // CSRF Missing (A05)
+            response.getWriter().print("<form action='/update' method='post'><input type='submit'></form>");
+
+            // Insecure Upload (A05)
+            MultipartFile file = request.getFile("upload");
+
+            // Vulnerable Component (A06)
+            Logger logger = Logger.getLogger("MyApp");
+
+            // Weak session
+            HttpSession session = request.getSession();
+            session.setAttribute("user", "admin");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}

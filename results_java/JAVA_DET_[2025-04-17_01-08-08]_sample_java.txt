@@ -1,0 +1,128 @@
+==================>      SNIPPETS DETECTED      <========================
+==> SAFE CODE: import java.sql.*;
+==> SAFE CODE: import java.security.MessageDigest;
+==> SAFE CODE: import java.util.Random;
+==> SAFE CODE: import javax.servlet.http.*;
+==> SAFE CODE: import java.net.URL;
+==> SAFE CODE: import java.io.ObjectInputStream;
+==> SAFE CODE: import org.apache.log4j.Logger;
+==> SAFE CODE: 
+==> SAFE CODE: public class VulnerableApp extends HttpServlet {
+==> SAFE CODE: 
+==> SAFE CODE:     // Hardcoded credentials (A02)
+(!) VULN CODE: , Hardcoded Credentials:     String password = "admin123";
+==> SAFE CODE: 
+==> SAFE CODE:     // Hardcoded secret (A04)
+==> SAFE CODE:     String apiKey = "1234-5678-SECRET";
+==> SAFE CODE: 
+==> SAFE CODE:     public void doPost(HttpServletRequest request, HttpServletResponse response) {
+==> SAFE CODE:         try {
+==> SAFE CODE:             // SQL Injection (A01)
+==> SAFE CODE:             String user = request.getParameter("user");
+==> SAFE CODE:             Statement stmt = DriverManager.getConnection("jdbc:mysql://localhost:3306/db", "root", "pass").createStatement();
+==> SAFE CODE:             ResultSet rs = stmt.executeQuery("SELECT * FROM users WHERE name='" + user + "'");
+==> SAFE CODE: 
+==> SAFE CODE:             // Command Injection (A01)
+==> SAFE CODE:             String cmd = request.getParameter("cmd");
+(!) VULN CODE: , Command Injection:             Runtime.getRuntime().exec("sh -c " + cmd);
+==> SAFE CODE: 
+==> SAFE CODE:             // Reflected XSS (A01)
+==> SAFE CODE:             response.getWriter().print("<h1>Welcome " + request.getParameter("name") + "</h1>");
+==> SAFE CODE: 
+==> SAFE CODE:             // Insecure Random (A04)
+(!) VULN CODE: , Insecure Random:             int token = new Random().nextInt();
+==> SAFE CODE: 
+==> SAFE CODE:             // Weak Hashing (A03)
+(!) VULN CODE: , Insecure Hash:             MessageDigest md = MessageDigest.getInstance("MD5");
+==> SAFE CODE:             md.update("sensitiveData".getBytes());
+==> SAFE CODE: 
+==> SAFE CODE:             // Insecure Deserialization (A08)
+(!) VULN CODE: , Insecure Deserialization:             ObjectInputStream ois = new ObjectInputStream(request.getInputStream());
+==> SAFE CODE:             Object obj = ois.readObject();
+==> SAFE CODE: 
+==> SAFE CODE:             // Missing Logging (A09)
+==> SAFE CODE:             try {
+==> SAFE CODE:                 Integer.parseInt("abc");
+==> SAFE CODE:             } catch (NumberFormatException e) {
+==> SAFE CODE:                 // no logging here
+==> SAFE CODE:             }
+==> SAFE CODE: 
+==> SAFE CODE:             // SSRF (A10)
+(!) VULN CODE: , Insecure HTTP:             URL url = new URL("http://" + request.getParameter("target"));
+==> SAFE CODE:             url.openStream();
+==> SAFE CODE: 
+==> SAFE CODE:             // Open Redirect (A01)
+==> SAFE CODE:             response.sendRedirect(request.getParameter("next"));
+==> SAFE CODE: 
+==> SAFE CODE:             // Weak password policy (A07)
+(!) VULN CODE: , Hardcoded Credentials:             String pwd = request.getParameter("password");
+==> SAFE CODE:             if (pwd.length() < 6) {
+==> SAFE CODE:                 response.getWriter().print("Weak password!");
+==> SAFE CODE:             }
+==> SAFE CODE: 
+==> SAFE CODE:             // CSRF Missing (A05)
+==> SAFE CODE:             response.getWriter().print("<form action='/update' method='post'><input type='submit'></form>");
+==> SAFE CODE: 
+==> SAFE CODE:             // Insecure Upload (A05)
+==> SAFE CODE:             MultipartFile file = request.getFile("upload");
+==> SAFE CODE: 
+==> SAFE CODE:             // Vulnerable Component (A06)
+==> SAFE CODE:             Logger logger = Logger.getLogger("MyApp");
+==> SAFE CODE: 
+==> SAFE CODE:             // Weak session
+==> SAFE CODE:             HttpSession session = request.getSession();
+==> SAFE CODE:             session.setAttribute("user", "admin");
+==> SAFE CODE: 
+==> SAFE CODE:         } catch (Exception e) {
+==> SAFE CODE:             e.printStackTrace();
+==> SAFE CODE:         }
+==> SAFE CODE:     }
+==> SAFE CODE: }
+
+
+
+
+=================>          DATASET SIZE         <=================
+
+#DimTestSet: 79 
+
+
+
+=================>    FINAL RESULTS DETECTION    <=================
+
+#TotalVulnerabilities: 7 
+
+#SafeCode: 72 
+
+Vulnerability Rate: 8.86076 % 
+
+
+
+=================>        OWASP CATEGORIES       <=================
+
+#Injection: 1 
+
+#Cryptographic Failures: 2 
+
+#Security Misconfiguration: 3 
+
+#Broken Access Control: 0 
+
+#Identification and Authentication Failures: 0 
+
+#Security Logging and Monitoring Failures: 0 
+
+#Insecure Design: 0 
+
+#SSRF: 0 
+
+#Software and Data Integrity Failures: 1 
+
+
+
+=================>        EXECUTION TIME        <=================
+
+Runtime:  s 
+
+Average runtime per snippet: 0 s 
+
