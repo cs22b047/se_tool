@@ -1139,5 +1139,186 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
+#RULE 71: detection of insecure SSL context
+echo $line | grep -q -i "SSLContext.getInstance\(\"TLS\"\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "SSLContext.getInstance\(\"TLSv1.2\"\)"
+    if [ $? -eq 0 ]; then
+        if [ $id_auth -eq 0 ]; then
+            vuln="$vuln, Identification and Authentication Failures"
+            let id_auth=id_auth+1
+        fi
+    fi
+fi
+
+#RULE 72: detection of disabled hostname verification
+echo $line | grep -q -i "setHostnameVerifier\(.*ALLOW_ALL_HOSTNAME_VERIFIER\)"
+if [ $? -eq 0 ]; then
+    if [ $id_auth -eq 0 ]; then
+        vuln="$vuln, Identification and Authentication Failures"
+        let id_auth=id_auth+1
+    fi
+fi
+
+#RULE 73: detection of weak TLS versions
+echo $line | grep -q -i "SSLEngine.setEnabledProtocols\(\"TLSv1\"\)"
+if [ $? -eq 0 ]; then
+    if [ $id_auth -eq 0 ]; then
+        vuln="$vuln, Identification and Authentication Failures"
+        let id_auth=id_auth+1
+    fi
+fi
+
+#RULE 74: detection of insecure random number generation
+echo $line | grep -q -i "SecureRandom.getInstance\(\"SHA1PRNG\"\)|new Random\(\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 75: detection of weak key sizes
+echo $line | grep -q -i "KeyPairGenerator.getInstance\(\"RSA\"\).initialize\(1024\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 76: detection of JWT verification bypass
+echo $line | grep -q -i "JWT.parser\(\).setSigningKey\(\"\"\)|JWT.require\(\).build\(\).verify\(token\) == null"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 77: detection of unsigned JWT acceptance
+echo $line | grep -q -i "JWT.decode\(token\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "JWT.require"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 78: detection of disabled JWT signature verification
+echo $line | grep -q -i "JWT.parser\(\).setSkipSignatureVerification\(true\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 79: detection of insecure network binding
+echo $line | grep -q -i "ServerSocket\(0, -1, InetAddress.getByName\(\"0.0.0.0\"\)\)"
+if [ $? -eq 0 ]; then
+    if [ $bac -eq 0 ]; then
+        vuln="$vuln, Broken Access Control"
+        let bac=bac+1
+    fi
+fi
+
+#RULE 80: detection of insecure XML parsing
+echo $line | grep -q -i "DocumentBuilderFactory.newInstance\(\).setFeature\(\"http://xml.org/sax/features/external-general-entities\", true\)"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 81: detection of insecure XML/XSLT processing
+echo $line | grep -q -i "TransformerFactory.newInstance\(\).setFeature\(\"http://javax.xml.XMLConstants/feature/secure-processing\", false\)"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 82: detection of insecure file permissions
+echo $line | grep -q -i "File\(\".*\.bin\"\)\.setReadable\(true\)|File\(\".*\.bin\"\)\.setWritable\(true\)"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 83: detection of potential infinite loops
+echo $line | grep -q -i "while \(.* < .*\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "\+\+|\+= 1"
+    if [ $? -eq 0 ]; then
+        if [ $sec_log -eq 0 ]; then
+            vuln="$vuln, Security Logging and Monitoring Failures"
+            let sec_log=sec_log+1
+        fi
+    fi
+fi
+
+#RULE 84: detection of improper lock usage
+echo $line | grep -q -i "ReentrantLock\(\).lock\(\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "tryLock\(\)|isLocked\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $sec_log -eq 0 ]; then
+            vuln="$vuln, Security Logging and Monitoring Failures"
+            let sec_log=sec_log+1
+        fi
+    fi
+fi
+
+#RULE 85: detection of insecure file operations
+echo $line | grep -q -i "FileInputStream\(\".*\"\)\.read\(\)|FileReader\(\".*\"\)\.read\(\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "File\(\".*\"\)\.exists\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $bac -eq 0 ]; then
+            vuln="$vuln, Broken Access Control"
+            let bac=bac+1
+        fi
+    fi
+fi
+
+# SQL Injection patterns
+rule1="(SELECT|DELETE|UPDATE|INSERT).*\\?.*\\(.*getParameter\\(.*\\)\\)"
+rule2="(SELECT|DELETE|UPDATE|INSERT).*\\+.*\\(.*getParameter\\(.*\\)\\)"
+rule3="rawQuery\\(.*\\+.*getParameter\\(.*\\).*\\)"
+rule4="execSQL\\(.*\\+.*getParameter\\(.*\\).*\\)"
+rule5="(orderBy|groupBy|having|limit)\\(.*\\.format\\(.*getParameter\\(.*\\)\\)\\)"
+rule6="(orderBy|groupBy|having|limit)\\(.*%.*getParameter\\(.*\\)\\)"
+
+sql_regex="($rule1|$rule2|$rule3|$rule4|$rule5|$rule6)"
+if echo "$new_line" | grep -q -E "$sql_regex"; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection (SQL)"
+        let inj=inj+1
+    fi
+fi
+
+#RULE: detection of insecure Velocity/FreeMarker configuration
+echo "$line" | grep -q "VelocityEngine\\(|FreeMarkerConfigurationFactory\\("
+if [ $? -eq 0 ]; then
+    echo "$line" | grep -E -q -v "setProperty\\(.*RUNTIME_REFERENCES_STRICT.*true\\)|setTemplateLoaderPaths\\(.*secure\\)"
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection (Template)"
+            let inj=inj+1
+        fi
+    fi
+fi
+
+   fi
+done < "$input"
+
 
         
