@@ -2837,7 +2837,8 @@ while IFS= read -r line; do
 
 
 
-        #RULE 84: detection of lock
+        #RULE 84: detection of lock  
+        
         echo $line | grep -E -q -i "= Lock\(\).*\.acquire\(\)|=Lock\(\).*\.acquire\(\)"
         if [ $? -eq 0 ]; then
             var=$(echo $line | awk -F "Lock\\\(" '{print $1}' |  awk '{print $NF}')
