@@ -91,7 +91,7 @@ app.post("/analyze", (req, res) => {
             return res.status(500).json({ error: "Script execution error", details: stderr });
         }
 
-        res.json({ report: stdout.trim() });
+        res.json({ report: stdout.trim(),downloadPath: `results/DET_pasted_${Date.now()}.txt` });
     });
 });
 

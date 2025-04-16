@@ -276,6 +276,7 @@
         <hr>
         <h3>Vulnerability Report</h3>
         <pre id="report">--Analysis will display here--</pre>
+        <button id="download_res">Dowload Result</button>
     </div>
     <script>
         const checkboxes = ["python-checkbox", "cpp-checkbox", "java-checkbox"];
@@ -293,6 +294,7 @@
         document.addEventListener("DOMContentLoaded", function () {
             const fileInput = document.getElementById("fileInput");
             const reportDiv = document.getElementById("report");
+            const downloadRes = document.getElementById("download_res");
 
             function getSelectedLanguage() {
                 if (document.getElementById("python-checkbox").checked) return "python";
