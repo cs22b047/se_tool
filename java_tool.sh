@@ -236,9 +236,9 @@ while IFS= read -r line; do
     echo "$trimmed" | grep -qE 'session\.setAttribute'
     [ $? -eq 0 ] && vuln="$vuln, A07-Manual Session Mgmt" && ((id_auth_count++))
 
-    # Rule 49: Missing CSP Header
-    echo "$trimmed" | grep -q 'Content-Security-Policy'
-    [ $? -ne 0 ] && vuln="$vuln, A05-Missing CSP Header" && ((sec_mis_count++))
+    # # Rule 49: Missing CSP Header
+    # echo "$trimmed" | grep -q 'Content-Security-Policy'
+    # [ $? -ne 0 ] && vuln="$vuln, A05-Missing CSP Header" && ((sec_mis_count++))
 
     # Rule 50: Public exposure of debug endpoints
     echo "$trimmed" | grep -qE 'debug=true|endpoint/debug'
