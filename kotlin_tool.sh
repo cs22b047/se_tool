@@ -381,5 +381,763 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
+        # RULE 19: Detects unsafe file upload handling
+echo $line | grep -E -q "@RequestPart|MultipartFile|request\.parts|request\.getParts" | grep -E -v "@Valid|@Size|@Pattern|@PreAuthorize"
+if [ $? -eq 0 ]; then
+    # Check for dangerous file operations
+    echo $line | grep -E -q "\.transferTo\(|\.bytes|\.inputStream|Files\.copy\(.*MultipartFile"
+    if [ $? -eq 0 ]; then
+        # Exclude safe validation patterns
+        echo $line | grep -E -v -q "FilenameUtils\.getExtension|FileTypeValidator|\.contentType\.matches\("
+        if [ $? -eq 0 ]; then
+            if [ $ins_des -eq 0 ]; then
+                vuln="$vuln, Insecure Design"
+                let ins_des=ins_des+1
+            fi
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+    fi
+    
+    # Check for path traversal patterns
+    echo $line | grep -E -q "File\(.*\+.*@RequestPart|Path\.of\(.*\+.*MultipartFile"
+    if [ $? -eq 0 ]; then
+        if [ $traversal -eq 0 ]; then
+            vuln="$vuln, Path Traversal"
+            let traversal=traversal+1
+        fi
+    fi
+fi
+
+# RULE 20: Detects unsafe return of request data
+echo $line | grep -E -q "return request\.body|return request\.content|return request\.inputStream|return request\.reader" | grep -E -v "@ResponseBody|@RestController|@Valid"
+if [ $? -eq 0 ]; then
+    # Check for sensitive data exposure
+    echo $line | grep -E -qi "return.*(password|token|secret|credit_card)"
+    if [ $? -eq 0 ]; then
+        if [ $data -eq 0 ]; then
+            vuln="$vuln, Sensitive Data Exposure"
+            let data=data+1
+        fi
+    fi
+    
+    # Check for raw data return
+    echo $line | grep -E -q "return String\(request\.body\)|return request\.inputStream\.readAllBytes\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+fi
+
+# RULE 21: Detects unsafe request data handling in Spring/Kotlin
+echo $line | grep -E -q "request\.body|request\.content|request\.inputStream|request\.reader|HttpEntity|RequestBody" | grep -E -v "@Valid|@ResponseBody|@RestController"
+if [ $? -eq 0 ]; then
+    # Check for dangerous data handling patterns
+    echo $line | grep -E -q "\+.*request\.body|\+.*request\.content|\"\\$\{.*request\.body\""
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+    fi
+    
+    # Check for direct deserialization
+    echo $line | grep -E -q "ObjectMapper\.readValue\(.*request\.body|JsonParser\.parse\(.*request\.content"
+    if [ $? -eq 0 ]; then
+        if [ $des -eq 0 ]; then
+            vuln="$vuln, Unsafe Deserialization"
+            let des=des+1
+        fi
+    fi
+    
+    # Check for sensitive data exposure
+    echo $line | grep -E -qi "request\.body.*(password|token|secret)"
+    if [ $? -eq 0 ]; then
+        if [ $data -eq 0 ]; then
+            vuln="$vuln, Sensitive Data Exposure"
+            let data=data+1
+        fi
+    fi
+fi
+
+# RULE 22: Detects unsafe environment variable and JSON handling
+echo $line | grep -E -q "System\.getenv\(|environment\.getProperty\(|ObjectMapper\(\)\.readValue\(|JsonParser\(\)\.parse\(" | grep -E -v "@Value\(\"\${[A-Z_]+\}\"\)|@ConfigurationProperties|JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES"
+if [ $? -eq 0 ]; then
+    # Check for sensitive environment variables
+    echo $line | grep -E -qi "(System\.getenv|environment\.getProperty)\(\"(API_KEY|SECRET|PASSWORD|TOKEN)\""
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+    
+    # Check for unsafe JSON parsing
+    echo $line | grep -E -q "ObjectMapper\(\)\.readValue\(.*, String::class\.java\)|JsonParser\(\)\.parse\(.*\)\.asText\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $des -eq 0 ]; then
+            vuln="$vuln, Unsafe Deserialization"
+            let des=des+1
+        fi
+    fi
+    
+    # Check for raw environment variable concatenation
+    echo $line | grep -E -q "\+.*System\.getenv\(|\+.*environment\.getProperty\("
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+    fi
+fi
+
+# RULE 23: Detects unsafe JSON parsing in Kotlin
+echo $line | grep -E -q "ObjectMapper\(\)\.readValue\(|JsonParser\(\)\.parse\(|Gson\(\)\.fromJson\(" | grep -E -v "@Valid|@JsonFormat|JsonParser.Feature|TypeReference"
+if [ $? -eq 0 ]; then
+    # Check for direct parsing of untrusted input
+    echo $line | grep -E -q "ObjectMapper\(\)\.readValue\(.*(request\.body|@RequestParam|@RequestBody|getParameter)"
+    if [ $? -eq 0 ]; then
+        if [ $des -eq 0 ]; then
+            vuln="$vuln, Unsafe Deserialization"
+            let des=des+1
+        fi
+    fi
+    
+    # Check for polymorphic type handling (Jackson Databind vulnerability)
+    echo $line | grep -E -q "@JsonTypeInfo|enableDefaultTyping\(|activateDefaultTyping\("
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+    
+    # Check for direct string parsing without validation
+    echo $line | grep -E -q "JsonParser\(\)\.parse\(.*\)\.asText\(\)|Gson\(\)\.fromJson\(.*, String::class\.java\)"
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+    fi
+fi
+
+# RULE 24: Detects unsafe function parameter handling in Kotlin
+echo $line | grep -E -q "fun [[:alnum:]_]+\\\(" | while read -r line; do
+    # Extract function parameters
+    params=$(echo "$line" | sed -n 's/.*fun[[:space:]]\+[[:alnum:]_]\+\(([^)]*)\).*/\1/p' | tr -d '()' | tr ',' '\n')
+    
+    # Check each parameter
+    echo "$params" | while read -r param; do
+        # Clean parameter (remove types, modifiers, etc.)
+        clean_param=$(echo "$param" | awk -F: '{print $1}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Skip empty or constructor parameters
+        [ -z "$clean_param" ] && continue
+        [[ "$clean_param" == *"constructor"* ]] && continue
+        
+        # Check for dangerous usage patterns
+        echo "$line" | grep -E -q "($clean_param\\.)?(execute|run|eval|system|exec)\\("
+        if [ $? -eq 0 ]; then
+            if [ $inj -eq 0 ]; then
+                vuln="$vuln, Injection"
+                let inj=inj+1
+            fi
+        fi
+        
+        # Check for direct SQL usage
+        echo "$line" | grep -E -q "($clean_param\\.)?(createStatement|executeQuery|prepareStatement)\\("
+        if [ $? -eq 0 ]; then
+            if [ $sql -eq 0 ]; then
+                vuln="$vuln, SQL Injection"
+                let sql=sql+1
+            fi
+        fi
+        
+        # Check for sensitive data handling
+        echo "$clean_param" | grep -E -qi "password|secret|token|key"
+        if [ $? -eq 0 ]; then
+            if [ $data -eq 0 ]; then
+                vuln="$vuln, Sensitive Data Exposure"
+                let data=data+1
+            fi
+        fi
+    done
+done
+
+# RULE 25: Detects unsafe request parameter array concatenation
+echo $line | grep -E -q "\\+.*request\\.(parameterMap|getParameterValues|getParameterNames|getQueryString)\\[" | grep -E -v "@Valid|@Size|@Pattern"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 26: Detects unsafe request parameter getter concatenation
+echo $line | grep -E -q "\\+.*request\\.(getParameter|getHeader|getAttribute|getCookies)\\(" | grep -E -v "@Valid|@Size|@Pattern"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 27: Detects unsafe string formatting with request data
+echo $line | grep -E -q "\"\\$\{.*(request\.|@RequestParam|@PathVariable|@RequestHeader|@RequestBody)" | grep -E -v "@Valid|@Size|@Pattern"
+if [ $? -eq 0 ]; then
+    # Check for dangerous formatting patterns
+    echo $line | grep -E -q "\"\\$\{.*(getParameter|parameterMap|getHeader|getAttribute)"
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+    
+    # Check for sensitive data exposure
+    echo $line | grep -E -qi "\"\\$\{.*(password|secret|token|key)"
+    if [ $? -eq 0 ]; then
+        if [ $data -eq 0 ]; then
+            vuln="$vuln, Sensitive Data Exposure"
+            let data=data+1
+        fi
+    fi
+fi
+
+# RULE 28: Detects unsafe request parameter usage in parentheses
+echo $line | grep -E -q "\\( *request\\.(getParameter|getParameterValues|getHeader|getAttribute)\\(" | grep -E -v "@Valid|@Size|@Pattern"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 29: Detects unsafe request parameter usage in format strings
+echo $line | grep -E -q "% *request\\.(getParameter|getHeader|getAttribute)\\(" | grep -E -v "@Valid|@Size|@Pattern"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 13F: Detects unsafe context variable usage in Spring/Kotlin
+echo $line | grep -E -q "model\.addAttribute\\(.*(request\.|session\.|servletContext\.)" | grep -E -v "@ModelAttribute|@Valid"
+if [ $? -eq 0 ]; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+# Check for direct request/session access in views
+echo $line | grep -E -q "Thymeleaf.*\\.(request|session|servletContext)\\." | grep -E -v "th:if|th:unless"
+if [ $? -eq 0 ]; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 30: Detects unsafe HTML handling
+echo $line | grep -E -q "StringEscapeUtils\.unescapeHtml|HtmlUtils\.htmlUnescape" | grep -E -v "StringEscapeUtils\.escapeHtml|HtmlUtils\.htmlEscape"
+if [ $? -eq 0 ]; then
+    if [ $xss -eq 0 ]; then
+        vuln="$vuln, Cross-Site Scripting (XSS)"
+        let xss=xss+1
+    fi
+fi
+
+# RULE 31: Detects direct input usage in functions
+echo $line | grep -E -q "fun [a-zA-Z0-9_]+\(.*readLine\\(\\).*\)"
+if [ $? -eq 0 ]; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 32: Detects unsafe CSV handling
+echo $line | grep -E -q "CSVReader|CSVWriter" | grep -E -v "CSVFormat\.RFC4180|CSVPrinter"
+if [ $? -eq 0 ]; then
+    if [ $csv -eq 0 ]; then
+        vuln="$vuln, CSV Injection"
+        let csv=csv+1
+    fi
+fi
+
+# RULE 33: Detects unsafe process execution
+echo $line | grep -E -q "Runtime\.getRuntime\\(\\)\\.exec\\(|ProcessBuilder\\(" | grep -E -v "waitFor\\(|inputStream"
+if [ $? -eq 0 ]; then
+    if [ $cmd -eq 0 ]; then
+        vuln="$vuln, Command Injection"
+        let cmd=cmd+1
+    fi
+fi
+
+# RULE 34: Detects unsafe YAML deserialization
+echo $line | grep -E -q "Yaml\\(\\)\\.load\\(|ObjectMapper\\(\\)\\.readValue\\(.*YAML" | grep -E -v "SafeConstructor|TypeSafeConstructor"
+if [ $? -eq 0 ]; then
+    if [ $des -eq 0 ]; then
+        vuln="$vuln, Unsafe Deserialization"
+        let des=des+1
+    fi
+    if [ $data -eq 0 ]; then
+        vuln="$vuln, Software and Data Integrity Failures"
+        let data=data+1
+    fi
+fi
+
+# RULE 35: Detects dynamic code evaluation
+echo $line | grep -E -q "ScriptEngine\\.eval\\(|GroovyShell\\(\\)\\.evaluate\\("
+if [ $? -eq 0 ]; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+# RULE 36: Detects unsafe process execution
+echo $line | grep -E -q "Runtime\\.getRuntime\\(\\)\\.exec\\(|ProcessBuilder\\(" | grep -E -v "waitFor\\(|inputStream"
+if [ $? -eq 0 ]; then
+    if [ $cmd -eq 0 ]; then
+        vuln="$vuln, Command Injection"
+        let cmd=cmd+1
+    fi
+fi
+
+# RULE 37: Detects shell command execution
+echo $line | grep -E -q "arrayOf\\(\"/bin/sh\", \"-c\"" | grep -E -v "Pattern\\.compile"
+if [ $? -eq 0 ]; then
+    if [ $cmd -eq 0 ]; then
+        vuln="$vuln, Command Injection"
+        let cmd=cmd+1
+    fi
+fi
+
+#RULE 38: detection of printStackTrace() without proper logging control
+        var=$(echo $line | awk -F "printStackTrace\\\(" '{print $1}' |  awk '{print $NF}')
+        if [ -z "$var" ]; then
+                pass=1;
+        else
+            if [ $var == "=" ]; then
+                var=$(echo $line | awk -F "printStackTrace\\\(" '{print $1}' | awk '{print $(NF-1)}')
+            else
+                last_char=$(echo "${var: -1}")
+                if [ $last_char == "=" ]; then
+                    if [ $name_os = "Darwin" ]; then  #MAC-OS system
+                        var=${var:0:$((${#var} - 1))}
+                    elif [ $name_os = "Linux" ]; then #LINUX system
+                        var=${var::-1}
+                    fi
+                fi            
+            fi   
+            ### CHECK  
+            echo $line | grep -E -q -i "return $var\.printStackTrace\(\)|println\($var\.printStackTrace\(\)\)|Log\.d\(.*$var\.printStackTrace\(\)\)|Log\.e\(.*$var\.printStackTrace\(\)\)"
+            if [ $? -eq 0 ]; then 
+                if [ $ins_des -eq 0 ]; then
+                    vuln="$vuln, Insecure Design"
+                    let ins_des=ins_des+1
+                fi
+            fi
+        fi
+
+        #RULE 39: detection of debug mode enabled in Android
+        echo $line | grep -E -q -i "\.setDebuggable\(true\)|\.debuggable *= *true|android:debuggable *= *[\"']true[\"']"
+        if [ $? -eq 0 ]; then
+            if [ $sec_mis -eq 0 ]; then
+                vuln="$vuln, Security Misconfiguration"
+                let sec_mis=sec_mis+1
+            fi
+        fi
+
+        #RULE 40: detection of insecure HTTP protocol usage
+        echo $line | grep -E -q -i "HttpURLConnection|http://|\.setAllowUnsafeConnections\(true\)"
+        if [ $? -eq 0 ]; then
+            echo $line | grep -v -q -i "HttpsURLConnection|https://"
+            if [ $? -eq 0 ]; then
+                if [ $crypto -eq 0 ]; then
+                    vuln="$vuln, Cryptographic Failures"
+                    let crypto=crypto+1
+                fi
+            fi
+        fi
+        
+        #RULE NEW: detection of hardcoded sensitive information
+        echo $line | grep -E -q -i "password *= *[\"'].*[\"']|apiKey *= *[\"'].*[\"']|secret *= *[\"'].*[\"']"
+        if [ $? -eq 0 ]; then
+            if [ $cred -eq 0 ]; then
+                vuln="$vuln, Credential Exposure"
+                let cred=cred+1
+            fi
+        fi
+
+        #RULE 41: detection of javax.mail.Transport without SSL
+echo $line | grep -E -q -i "javax\.mail\.Transport\.send\(|java\.mail\.Transport\.send\(|Properties\.put\(\"mail\.smtp\.starttls\.enable\", \"false\"\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q -i "mail\.smtp\.ssl\.enable.*true|mail\.smtp\.starttls\.enable.*true"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 42: detection of MessageDigest with weak algorithms
+echo $line | grep -E -q -i "MessageDigest\.getInstance\(\"SHA-256\"\)|DigestUtils\.sha256\("
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "\.update\(.*salt\)|\.update\(.*SALT\)"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+        #RULE 43: detection of weak key sizes in KeyPairGenerator
+echo $line | grep -E -i -q "KeyPairGenerator\.initialize\((512|768|1024)\)|KeyPairGenerator\.getInstance\(\"DSA\"\)\.initialize\((512|768|1024)\)"
+if [ $? -eq 0 ]; then
+    value=$(echo $line | awk -F 'initialize\\(' '{print $2}' | awk -F ')' '{print $1}')
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 44: detection of deprecated crypto algorithms
+echo $line | grep -E -q -i "Cipher\.getInstance\(\"DES/|KeyGenerator\.getInstance\(\"DES\"\)|SecretKeySpec\(.*,\"DES\"\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 45: detection of insecure SSL/TLS configurations
+echo $line | grep -E -q -i "SSLContext\.getInstance\(\"TLSv1\"\)|SSLSocketFactory\.getInsecure\(\)|setHostnameVerifier\(.*ALLOW_ALL_HOSTNAME_VERIFIER\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE extra: detection of cleartext traffic allowed
+echo $line | grep -q -i "android:usesCleartextTraffic=\"true\""
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q -i "networkSecurityConfig"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+        #RULE 47: detection of SHA-1 MessageDigest
+echo $line | grep -E -q -i "MessageDigest\.getInstance\(\"SHA-1\"\)|DigestUtils\.sha1\("
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+        #RULE 48: detection of AES with ECB mode or without IV
+echo $line | grep -E -q -i "Cipher\.getInstance\(\"AES/ECB\"\)|SecretKeySpec\(.*\"AES\"\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "IvParameterSpec"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 49: detection of CBC mode with static IV
+echo $line | grep -E -q -i "Cipher\.getInstance\(\"AES/CBC\"\)|Cipher\.getInstance\(\"DES/CBC\"\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -E -q -i "IvParameterSpec\(\"0000000000000000\"\)|IvParameterSpec\(new byte\[16\]\)"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 50: detection of java.util.Random usage
+echo $line | grep -E -q -i "new Random\(\)|Random\.next"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "SecureRandom"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 51: detection of insecure random selection
+echo $line | grep -E -q -i "Random\(\).nextInt\(|Random\(\).nextLong\(|Random\.next"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "SecureRandom"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 52: detection of insecure random bit generation
+echo $line | grep -E -q -i "Random\(\).nextBytes\(|Random\(\).nextInt\(.*\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "SecureRandom"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 53: detection of insecure JWT processing
+echo $line | grep -E -q -i "JWT\.decode\(|JWT\.parse\(|DefaultJwtParser\(\).parse\("
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "JWT\.require\(|Jwts\.parser\(\)\.setSigningKey"
+    if [ $? -eq 0 ]; then
+        if [ $crypto -eq 0 ]; then
+            vuln="$vuln, Cryptographic Failures"
+            let crypto=crypto+1
+        fi
+    fi
+fi
+
+#RULE 54: detection of insecure temporary file creation
+echo $line | grep -E -q -i "File\.createTempFile\(|\.createTempFile\("
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "\.deleteOnExit\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $bac -eq 0 ]; then
+            vuln="$vuln, Broken Access Control"
+            let bac=bac+1
+        fi
+    fi
+fi
+
+#RULE 55: detection of System.currentTimeMillis() for security
+echo $line | grep -E -q -i "System\.currentTimeMillis\(\)|System\.nanoTime\(\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -q -i "tokenExpiration|sessionTimeout"
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+    fi
+fi
+
+#RULE 56: detection of insecure ObjectInputStream usage
+echo $line | grep -E -q -i "ObjectInputStream\(|ObjectOutputStream\("
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "readObject\(\)\.getClass\(\)\.getName\(\)"
+    if [ $? -eq 0 ]; then
+        if [ $soft_data -eq 0 ]; then
+            vuln="$vuln, Software and Data Integrity Failures"
+            let soft_data=soft_data+1
+        fi
+    fi
+fi
+
+#RULE 57: detection of insecure XML parsing
+echo $line | grep -E -q -i "DocumentBuilderFactory\.newInstance\(\)|SAXParserFactory\.newInstance\(\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "setFeature\(\"http://xml.org/sax/features/external-general-entities\", false\)"
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+fi
+
+#RULE 58: detection of Java assertions
+echo $line | grep -E -q -i "assert [a-zA-Z]"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 59: detection of weak MessageDigest algorithms
+echo $line | grep -E -q -i "MessageDigest\.getInstance\(\"MD[245]\"\)|MessageDigest\.getInstance\(\"SHA-1\"\)"
+if [ $? -eq 0 ]; then
+    if [ $crypto -eq 0 ]; then
+        vuln="$vuln, Cryptographic Failures"
+        let crypto=crypto+1
+    fi
+fi
+
+#RULE 60: detection of weak PBKDF2 configurations
+echo $line | grep -E -q -i "SecretKeyFactory\.getInstance\(\"PBKDF2WithHmac"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "PBKDF2WithHmacSHA512|PBKDF2WithHmacSHA384"
+    if [ $? -eq 0 ]; then
+        iterations=$(echo $line | grep -o "iterationCount = [0-9]*" | awk '{print $3}')
+        if [ -z "$iterations" ] || [ $iterations -lt 10000 ]; then
+            if [ $crypto -eq 0 ]; then
+                vuln="$vuln, Cryptographic Failures"
+                let crypto=crypto+1
+            fi
+        fi
+    fi
+fi
+
+#RULE 61: detection of raw DatagramPacket processing
+echo $line | grep -E -q -i "DatagramPacket\(|DatagramSocket\("
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "checkCallingOrSelfPermission\(\"android\.permission\.INTERNET\"\)"
+    if [ $? -eq 0 ]; then
+        if [ $bac -eq 0 ]; then
+            vuln="$vuln, Broken Access Control"
+            let bac=bac+1
+        fi
+    fi
+fi
+
+#RULE 62: detection of native binary execution
+echo $line | grep -E -q -i "Runtime\.getRuntime\(\)\.exec\(.*\.bin\"\)|ProcessBuilder\(.*\.bin\"\)"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 63: detection of dangerous exec patterns
+echo $line | grep -E -q -i "Runtime\.getRuntime\(\)\.exec\(.*\"su\"\)|Runtime\.getRuntime\(\)\.exec\(.*\"sh\"\)"
+if [ $? -eq 0 ]; then
+    if [ $inj -eq 0 ]; then
+        vuln="$vuln, Injection"
+        let inj=inj+1
+    fi
+fi
+
+#RULE 64: detection of insecure XML parsing
+echo $line | grep -q -i "import javax\.xml\.parsers\.DocumentBuilderFactory|DocumentBuilderFactory\.newInstance\(\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "setFeature\(\"http://xml\.org/sax/features/external-general-entities\", false\)"
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+fi
+
+#RULE 65: detection of privilege escalation patterns
+echo $line | grep -q -i "Runtime\.getRuntime\(\)\.exec\(.*\"su\"\)|checkCallingOrSelfPermission\(\".*\"\) == PackageManager\.PERMISSION_GRANTED"
+if [ $? -eq 0 ]; then
+    if [ $ins_des -eq 0 ]; then
+        vuln="$vuln, Insecure Design"
+        let ins_des=ins_des+1
+    fi
+fi
+
+#RULE extra2: detection of insecure WebView JavaScript interface
+echo $line | grep -E -q -i "\.addJavascriptInterface\(.*, *[\"'].*[\"']\)"
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "@JavascriptInterface"
+    if [ $? -eq 0 ]; then
+        if [ $inj -eq 0 ]; then
+            vuln="$vuln, Injection"
+            let inj=inj+1
+        fi
+    fi
+fi
+
+#RULE 67: detection of insecure file permissions
+echo $line | grep -E -q -i "File\.setReadable\(false\)|File\.setWritable\(false\)|File\.setExecutable\(false\)"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
+#RULE 68: detection of insecure cookie handling
+echo $line | grep -E -q -i "CookieManager\.getInstance\(\)\.setCookie\(.*,.*\"|CookieManager\.getInstance\(\)\.setCookie\(.*,.*\""
+if [ $? -eq 0 ]; then
+    echo $line | grep -v -q "Secure; HttpOnly"
+    if [ $? -eq 0 ]; then
+        if [ $sec_mis -eq 0 ]; then
+            vuln="$vuln, Security Misconfiguration"
+            let sec_mis=sec_mis+1
+        fi
+    fi
+fi
+
+#RULE 69: detection of disabled SSL hostname verification
+echo $line | grep -E -q -i "HttpsURLConnection\.setDefaultHostnameVerifier\(.*ALLOW_ALL_HOSTNAME_VERIFIER\)|HostnameVerifier\.ALLOW_ALL_HOSTNAME_VERIFIER"
+if [ $? -eq 0 ]; then
+    if [ $id_auth -eq 0 ]; then
+        vuln="$vuln, Identification and Authentication Failures"
+        let id_auth=id_auth+1
+    fi
+fi
+
+#RULE 70: detection of disabled SSL certificate verification
+echo $line | grep -E -q -i "TrustManager\[\] trustAllCerts|X509TrustManager\.getAcceptedIssuers\(\) return null"
+if [ $? -eq 0 ]; then
+    if [ $id_auth -eq 0 ]; then
+        vuln="$vuln, Identification and Authentication Failures"
+        let id_auth=id_auth+1
+    fi
+fi
+
+#RULE extra3: detection of debug flags in production
+echo $line | grep -E -q -i "\.setDebuggable\(true\)|\.debuggable *= *true|android:debuggable *= *[\"']true[\"']"
+if [ $? -eq 0 ]; then
+    if [ $sec_mis -eq 0 ]; then
+        vuln="$vuln, Security Misconfiguration"
+        let sec_mis=sec_mis+1
+    fi
+fi
+
 
         
