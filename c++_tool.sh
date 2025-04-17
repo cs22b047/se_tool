@@ -4,7 +4,7 @@ input=$1
 output_file=$2
 
 if [ -z "$input_file" ] || [ -z "$output_file" ]; then
-    echo "Usage: $0 <input_java_file> <output_report>"
+    echo "Usage: $0 <input_c++_file> <output_report>"
     exit 1
 fi
 
