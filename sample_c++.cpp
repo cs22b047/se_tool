@@ -49,3 +49,15 @@ Give shell script to recognize the c++ equivalent vulnerability in python like t
                     let sec_mis=sec_mis+1
                 fi
             fi
+
+
+
+            -inj_count=0;  # Injection
+            -crypto_count=0; # Cryptografic Failures
+            -sec_mis_count=0; # Security Misconfiguration
+            -bac_count=0;  # Broken Access Control
+            -id_auth_count=0; # Identification and Authentication Failures
+            -sec_log_count=0; # Secuirty Logging and Monitoring Failures 
+            -ins_des_count=0; # Insecure Design
+            -ssrf_count=0; # SSRF
+            -soft_data_count=0; # Software and Data Integrity Failures
