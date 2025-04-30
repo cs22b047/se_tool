@@ -10,12 +10,7 @@ cd se_tool
 
 ### make the files executables
 ```
-chmod +x devaic.sh
-chmod +x devaic_cpp.sh
-chmod +x devaic_java.sh
-chmod +x tool_derem.sh
-chmod +x java_tool.sh
-chmod +x c++_tool.sh
+chmod +x `cat executables_list.txt`
 ```
 
 ### install dependencies

@@ -1,0 +1,8 @@
+./devaic.sh
+./devaic_java.sh
+./devaic_rust.sh
+./devaic_cpp.sh
+./c++_tool.sh
+./java_tool.sh
+./rust_tool.sh
+./tool_derem.sh

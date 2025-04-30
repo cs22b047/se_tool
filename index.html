@@ -300,23 +300,6 @@
             a.click();
             document.body.removeChild(a);
         };
-        const downloadGen = () => {
-            const downloadPath = document.getElementById("download_path_gen").textContent;
-
-            if (!downloadPath) {
-                alert("No downloadable file found. Please analyze the code first.");
-                return;
-            }
-
-            const fullUrl = `http://localhost:5000/${downloadPath}`;
-
-            const a = document.createElement("a");
-            a.href = fullUrl;
-            a.download = downloadPath.split("/").pop(); // Extract filename
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        };
         checkboxes.forEach(id => {
             document.getElementById(id).addEventListener("change", function () {
                 if (this.checked) {
@@ -339,7 +322,38 @@
                 if (document.getElementById("java-checkbox").checked) return "java";
                 return null;
             }
+            window.downloadGen = function () {
+                const language = getSelectedLanguage();
+                const code = document.getElementById("codeInput").value.trim();
 
+                if (!language) return alert("Please select a language");
+                if (!code) return alert("Please paste code for generation.");
+
+                fetch("http://localhost:5000/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code, language })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.downloadPathGen) return alert("No generated file returned.");
+
+                        // Save the download path for reuse
+                        document.getElementById("download_path_gen").textContent = data.downloadPathGen;
+
+                        // Trigger download
+                        const a = document.createElement("a");
+                        a.href = `http://localhost:5000/${data.downloadPathGen}`;
+                        a.download = data.downloadPathGen.split("/").pop();
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    })
+                    .catch(err => {
+                        console.error("Error downloading generated code:", err);
+                        alert("Failed to generate or download the improved code.");
+                    });
+            }
             window.uploadFile = function () {
                 const language = getSelectedLanguage();
                 if (!language) return alert("Please select a language");

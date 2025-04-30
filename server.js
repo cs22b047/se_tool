@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
@@ -8,6 +9,13 @@ const path = require("path");
 
 const app = express();
 const UPLOAD_DIR = "input";
+
+const { OpenAI } = require("openai");
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1"
+});
 
 // Ensure the input directory exists
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -100,4 +108,35 @@ app.post("/analyze", (req, res) => {
 
 app.listen(5000, "localhost", () => {
     console.log("Server running on http://localhost:5000");
+});
+
+
+app.post("/generate", async (req, res) => {
+    const { code, language } = req.body;
+
+    if (!code || !language) {
+        return res.status(400).json({ error: "Code or language not provided" });
+    }
+
+    const prompt = `You are a secure coding assistant. Improve the following ${language} code by removing any potential security vulnerabilities while keeping functionality intact:\n\n${code}`;
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model: "openai/gpt-3.5-turbo",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2
+        });
+
+        const improvedCode = completion.choices[0].message.content;
+        const outputFilename = `generated_code_${Date.now()}.txt`;
+        const outputPath = path.join("generated_file", outputFilename);
+
+        fs.writeFileSync(outputPath, improvedCode);
+
+        res.json({ code: improvedCode, downloadPathGen: `generated_file/${outputFilename}` });
+
+    } catch (err) {
+        console.error("Error generating code:", err);
+        res.status(500).json({ error: "Failed to generate secure code" });
+    }
 });
