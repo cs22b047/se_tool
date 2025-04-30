@@ -1,12 +1,6 @@
 start=$(date +%s.%N)
 
 input=$1
-output_file=$2
-
-if [ -z "$input_file" ] || [ -z "$output_file" ]; then
-    echo "Usage: $0 <input_java_file> <output_report>"
-    exit 1
-fi
 
 #tool for DETECTION of OWASP top 10 categories
 
@@ -2221,53 +2215,3 @@ while IFS= read -r line; do
 
     fi
 done < "$input"
-
-# ===================== Final Prompt Output =========================
-
-end=$(date +%s.%N)
-runtime=$(awk -v start="$start" -v end="$end" 'BEGIN { print end - start }')
-
-dimtestset=$(wc -l < "$input_file")
-countvuln=$(grep -c "\[!\] VULNERABLE" "$output_file")
-
-echo -e "\n"
-echo -e "=================>          DATASET SIZE         <=================\n"
-{ echo "#DimTestSet:"; echo $dimtestset; } | tr "\n" " ";
-echo -e "\n\n"
-
-echo -e "=================>    FINAL RESULTS DETECTION    <=================\n"
-{ echo "#TotalVulnerabilities:"; echo $countvuln; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#SafeCode:";  awk -v var1=$dimtestset -v var2=$countvuln 'BEGIN { if(var1!=0) { print  ( var1 - var2 )  } else {print 0} }'; } | tr "\n" " ";
-echo -e "\n"
-{ echo "Vulnerability Rate:"; awk -v var1=$countvuln -v var2=$dimtestset 'BEGIN {  if(var2!=0) { print  ( var1 / var2 ) * 100 } else {print 0} }'; echo "%"; } | tr "\n" " ";
-echo -e "\n\n"
-
-echo -e "=================>        OWASP CATEGORIES       <=================\n"
-{ echo "#Injection:"; echo $inj_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Cryptographic Failures:"; echo $crypto_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Security Misconfiguration:"; echo $sec_mis_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Broken Authentication:"; echo $bac_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Identification and Authentication Failures:"; echo $id_auth_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Insecure Design:"; echo $ins_des_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Vulnerable Components:"; echo $vuln_comp_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Security Logging and Monitoring Failures:"; echo $sec_log_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#Software and Data Integrity Failures:"; echo $soft_data_count; } | tr "\n" " ";
-echo -e "\n"
-{ echo "#SSRF:"; echo $ssrf_count; } | tr "\n" " ";
-echo -e "\n\n"
-
-echo -e "=================>        EXECUTION TIME        <=================\n"
-{ echo "Runtime:"; echo $runtime; echo "s"; } | tr "\n" " ";
-echo -e "\n"
-{ echo "Average runtime per snippet:"; awk -v var1=$runtime -v var2=$dimtestset 'BEGIN {  if(var2!=0) { print  ( var1 / var2 ) } else {print 0} }'; echo "s"; } | tr "\n" " ";
-echo -e "\n"
-

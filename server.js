@@ -25,6 +25,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 app.use('/results', express.static(path.join(__dirname, 'results')));
+app.use('/generated_file', express.static(path.join(__dirname, 'generated_file')));
 
 // Function to get shell script path based on language
 function getScriptPath(language) {
@@ -93,7 +94,7 @@ app.post("/analyze", (req, res) => {
             return res.status(500).json({ error: "Script execution error", details: stderr });
         }
 
-        res.json({ report: stdout.trim(),downloadPath: `results/DET_${tempFileName}` });
+        res.json({ report: stdout.trim(),downloadPath: `results/DET_${tempFileName}`,downloadPathGen: `generated_file/INPUT_[2025-04-17_01-27-47]_pasted_1744833467509.txt` });
     });
 });
 
